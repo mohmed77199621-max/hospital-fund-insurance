@@ -1,0 +1,1027 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>نظام توزيع صندوق تحسين الخدمة ومستحقات الأطباء والعاملين - مستشفى سوهاج العام</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Kufi+Arabic:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<style>
+:root{
+  --p:#0b3d3a; --p2:#082c29; --pl:#125e57;
+  --a:#c17817; --al:#e0a04a;
+  --s:#ffffff; --s2:#eef5f3; --b:#d7e6e2;
+  --t:#142e2a; --tm:#5f7b76;
+  --ok:#1f7a4c; --er:#b3261e; --bg:#eef3f1;
+  --lock:#8a5a10;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Noto Kufi Arabic',sans-serif;background:var(--bg);color:var(--t);font-size:14px}
+
+.app-shell{display:flex;min-height:100vh}
+
+.sidebar{width:290px;flex-shrink:0;background:linear-gradient(190deg,var(--p2),var(--p) 70%);color:#eafaf5;display:flex;flex-direction:column;box-shadow:2px 0 14px rgba(0,0,0,.12);z-index:10}
+.sidebar-header{padding:20px 18px 16px;border-bottom:1px solid rgba(255,255,255,.14);display:flex;align-items:center;gap:12px}
+.sidebar-emblem{width:42px;height:42px;background:var(--a);border-radius:11px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.sidebar-header .h-title{font-weight:900;font-size:.92rem;color:#fff;line-height:1.35}
+.sidebar-header .h-sub{font-weight:600;font-size:.66rem;color:#9fd6c8;margin-top:2px}
+
+.sidebar-scroll{flex:1;overflow-y:auto;padding:12px 10px}
+.sidebar-scroll::-webkit-scrollbar{width:6px}
+.sidebar-scroll::-webkit-scrollbar-thumb{background:rgba(255,255,255,.18);border-radius:6px}
+
+.month-item{margin-bottom:5px}
+.month-header{width:100%;display:flex;align-items:center;gap:9px;background:transparent;border:none;color:#e2f6f0;padding:10px 10px;border-radius:9px;cursor:pointer;font-family:inherit;font-weight:800;font-size:.82rem;text-align:right}
+.month-header:hover{background:rgba(255,255,255,.09)}
+.month-header.active-month{background:rgba(193,120,23,.22)}
+.chev{display:inline-block;font-size:.68rem;color:var(--al);transition:transform .18s;flex-shrink:0}
+.chev.open{transform:rotate(90deg)}
+.m-label{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lock-ic{font-size:.68rem;flex-shrink:0;opacity:.85}
+
+.sheet-list{display:none;flex-direction:column;gap:2px;padding:4px 8px 10px 4px;margin-right:14px;border-right:1.5px solid rgba(255,255,255,.14)}
+.sheet-list.open{display:flex}
+.sheet-btn{background:none;border:none;color:#b7d9d1;text-align:right;padding:7px 10px;border-radius:7px;font-family:inherit;font-size:.74rem;font-weight:700;cursor:pointer}
+.sheet-btn:hover{background:rgba(255,255,255,.07);color:#fff}
+.sheet-btn.active{background:var(--a);color:#241705}
+
+.month-tools{display:flex;gap:6px;margin-top:6px;padding-top:6px;border-top:1px dashed rgba(255,255,255,.14)}
+.tiny-btn{background:none;border:none;color:#9fd6c8;font-size:.66rem;font-weight:700;cursor:pointer;padding:3px 6px;border-radius:5px}
+.tiny-btn:hover{background:rgba(255,255,255,.08);color:#fff}
+.tiny-btn.danger{color:#f4a19a}
+.tiny-btn.danger:hover{background:rgba(179,38,30,.25);color:#fff}
+.locked-note{font-size:.64rem;color:#9fd6c8;margin-top:6px;padding-top:6px;border-top:1px dashed rgba(255,255,255,.14)}
+
+.add-month-btn{margin:6px 10px 12px;padding:11px;border-radius:10px;border:1.5px dashed rgba(255,255,255,.32);background:rgba(255,255,255,.04);color:#eafaf5;font-weight:800;cursor:pointer;font-family:inherit;font-size:.78rem}
+.add-month-btn:hover{background:rgba(255,255,255,.1);border-color:var(--al)}
+
+.sidebar-footer{padding:12px 14px 16px;border-top:1px solid rgba(255,255,255,.14)}
+.cloud-status{margin-top:10px;font-size:.66rem;font-weight:700;color:#9fd6c8;text-align:center;line-height:1.5}
+
+.main-content{flex:1;min-width:0;padding:24px 28px 60px}
+.content-header{display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:14px;margin-bottom:20px}
+.crumb{font-size:.7rem;font-weight:700;color:var(--tm);margin-bottom:4px}
+.crumb b{color:var(--a)}
+.page-title{font-size:1.15rem;font-weight:900;color:var(--p)}
+.header-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+
+.lock-banner{background:#fbeedd;border:1px solid #eccf9c;color:var(--lock);font-weight:800;font-size:.76rem;border-radius:10px;padding:10px 14px;margin-bottom:16px;display:flex;align-items:center;gap:8px}
+
+.empty-state{background:var(--s);border:2px dashed var(--b);border-radius:14px;padding:60px 20px;text-align:center;color:var(--tm);font-weight:700}
+
+.sheet-card{background:var(--s);border-radius:14px;border:1px solid var(--b);box-shadow:0 3px 12px rgba(11,61,58,.06);padding:20px;margin-bottom:18px}
+.sheet-card-head{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px}
+.sheet-card h2{font-weight:900;font-size:.88rem;color:var(--p);border-right:4px solid var(--a);padding-right:11px}
+.head-btns{display:flex;gap:8px;flex-wrap:wrap}
+
+.g6{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+@media(max-width:1050px){.g6{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:640px){.g6{grid-template-columns:1fr}}
+
+.btn{border:none;border-radius:9px;font-family:'Noto Kufi Arabic',sans-serif;font-weight:800;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:all .18s;font-size:.8rem;padding:9px 16px;line-height:1}
+.btn-p{background:var(--p);color:#fff}.btn-p:hover{background:var(--pl)}
+.btn-a{background:var(--a);color:#fff}.btn-a:hover{background:#a8690f}
+.btn-o{background:transparent;color:var(--p);border:1.5px solid var(--b)}.btn-o:hover{border-color:var(--p);background:#f0f7f5}
+.btn-ok{background:var(--ok);color:#fff}.btn-ok:hover{background:#175f3b}
+.btn-sm{padding:7px 13px;font-size:.74rem}
+.btn-er{background:transparent;color:var(--er);border:1.5px solid #f1c7c1;padding:5px 9px;font-size:.7rem;border-radius:7px;cursor:pointer;font-family:inherit;font-weight:700}
+.btn-er:hover{background:#fdf0ee}
+
+.tbl{width:100%;border-collapse:collapse;font-size:.8rem}
+.tbl thead{background:var(--s2)}
+.tbl th{padding:10px 10px;font-weight:800;color:var(--tm);font-size:.66rem;text-transform:uppercase;letter-spacing:.02em;border-bottom:2px solid var(--b);text-align:center}
+.tbl th:first-child,.tbl td:first-child{text-align:right}
+.tbl td{padding:8px 8px;border-bottom:1px solid #eef3f1;text-align:center;font-weight:600}
+.tbl tbody tr:hover{background:#f6faf9}
+.tbl tfoot td{font-weight:900;color:var(--p);background:var(--s2);border-top:2px solid var(--b)}
+.num{font-variant-numeric:tabular-nums}
+
+.total-box{background:linear-gradient(135deg,var(--p),var(--p2));border-radius:14px;padding:18px 18px;text-align:center;border:2px solid var(--a)}
+.total-box .lbl{font-size:.68rem;font-weight:700;color:#9fd6c8;margin-bottom:6px}
+.total-box .val{font-size:1.2rem;font-weight:900;color:#fff}
+
+.dist-card{background:var(--s2);border:1px solid var(--b);border-radius:12px;padding:13px;text-align:center;position:relative}
+.dist-card .dist-pct-input{width:70px;margin:0 auto 6px;text-align:center;font-size:1.15rem;font-weight:900;color:var(--a);border:1px solid transparent;background:transparent;font-family:inherit;border-radius:7px;padding:3px}
+.dist-card .dist-pct-input:hover,.dist-card .dist-pct-input:focus{border-color:var(--b);background:#fff;outline:none}
+.dist-card .dist-pct-locked{font-size:1.15rem;font-weight:900;color:var(--a);display:block;margin-bottom:6px}
+.dist-card .lb{margin:2px 0 8px}
+.dist-card .lb input{width:100%;text-align:center;font-size:.68rem;font-weight:700;color:var(--tm);border:1px solid transparent;background:transparent;font-family:inherit;border-radius:6px;padding:4px}
+.dist-card .lb input:hover,.dist-card .lb input:focus{border-color:var(--b);background:#fff;outline:none}
+.dist-card .lb-locked{font-size:.68rem;font-weight:700;color:var(--tm);display:block;padding:4px}
+.dist-card .vv{font-size:.88rem;font-weight:900;color:var(--p)}
+.pct-sum-note{font-size:.72rem;font-weight:700;color:var(--ok);margin-bottom:12px}
+.pct-sum-note.warn{color:var(--er)}
+
+.badge{display:inline-block;padding:3px 9px;border-radius:10px;font-size:.65rem;font-weight:800}
+.ba{background:#fbeedd;color:#8a5a10}
+
+.sign-row{display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-top:10px;padding-top:16px;border-top:1px dashed var(--b)}
+.sign-item{font-size:.72rem;font-weight:700;color:var(--tm);text-align:center;flex:1;min-width:130px}
+.sign-item span{display:block;color:var(--p);font-weight:900;margin-top:22px;border-top:1px solid var(--b);padding-top:5px}
+
+.cell-input{width:100%;border:1px solid transparent;background:transparent;font-family:'Noto Kufi Arabic',sans-serif;font-weight:600;font-size:.8rem;color:var(--t);text-align:center;padding:6px 4px;border-radius:7px}
+.cell-input:hover{border-color:var(--b)}
+.cell-input:focus{outline:none;border-color:var(--a);background:#fffaf1}
+.name-input{text-align:right;font-weight:700}
+.locked-cell{display:block;padding:6px 4px;font-weight:600;color:var(--t)}
+.locked-cell.name-locked{text-align:right;font-weight:700}
+
+.save-toast{position:fixed;bottom:20px;left:20px;background:var(--ok);color:#fff;padding:10px 18px;border-radius:10px;font-weight:800;font-size:.78rem;box-shadow:0 4px 14px rgba(0,0,0,.2);opacity:0;transform:translateY(8px);transition:all .25s;z-index:80;pointer-events:none}
+.save-toast.show{opacity:1;transform:translateY(0)}
+.save-toast.err{background:var(--er)}
+
+@media(max-width:700px){
+  .app-shell{flex-direction:column}
+  .sidebar{width:100%;max-height:44vh}
+  .sidebar-scroll{max-height:26vh}
+  .main-content{padding:18px 14px 50px}
+}
+
+@media print{
+  .no-print{display:none!important}
+  body{background:#fff}
+  .app-shell{display:block}
+  .main-content{padding:0}
+  .sheet-card{box-shadow:none;border:1px solid #ccc}
+  .cell-input{border-color:transparent!important;background:transparent!important}
+}
+</style>
+</head>
+<body>
+
+<div class="app-shell">
+
+  <aside class="sidebar no-print" id="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-emblem">
+        <svg width="22" height="22" fill="none" stroke="#fff" stroke-width="2.5" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      </div>
+      <div>
+        <div class="h-title">مستشفى سوهاج العام</div>
+        <div class="h-sub">صندوق تحسين الخدمة — الشهور والشيتات</div>
+      </div>
+    </div>
+
+    <div class="sidebar-scroll" id="month-list"></div>
+
+    <button class="add-month-btn" onclick="addMonth()">➕ إضافة شهر جديد</button>
+
+    <div class="sidebar-footer">
+      <button class="btn btn-a" style="width:100%;justify-content:center" onclick="window.print()">🖨 طباعة / معاينة الطباعة</button>
+      <div class="cloud-status" id="cloud-status">⏳ جارى الاتصال بقاعدة البيانات...</div>
+    </div>
+  </aside>
+
+  <main class="main-content">
+    <div class="content-header">
+      <div>
+        <div class="crumb" id="crumb">—</div>
+        <div class="page-title" id="page-title">—</div>
+      </div>
+      <div class="header-actions no-print">
+        <button class="btn btn-ok btn-sm" onclick="saveAll(true)">💾 حفظ الآن</button>
+        <button class="btn btn-o btn-sm" onclick="window.print()">🖨 طباعة</button>
+      </div>
+    </div>
+
+    <div id="sheet-container"></div>
+  </main>
+
+</div>
+
+<input type="file" id="excel-input" accept=".xlsx,.xls,.csv" style="display:none">
+<div class="save-toast" id="save-toast">✔ تم الحفظ</div>
+
+<script id="seed-json" type="application/json">
+{"periods": [{"id": "p1", "label": "سبتمبر واكتوبر 2024", "income": [["عيادة صباحى", 435000], ["عيادة مسائي", 337500], ["زيارة", 56100], ["اقتصادى صباحى", 1624530], ["اقتصادى مسائي", 1643817.35]], "expense": [["كيماويات المعمل", 36059.71], ["افلام اشعة", 291616.5], ["جيلى كلار", 3049.76], ["بكر رسم قلب", 5407.3], ["مستلزمات محاليل", 26173.27], ["شهداء", 9550], ["نسبة 80% قرار", 23408], ["اكياس الدم", 94035], ["تحاليل بنك الدم", 29560.65], ["مستلزمات اسنان", 19748.18], ["التعقيم", 107780.69], ["السموم", 6270], ["غسيل كلى", 1650], ["مطبوعات", 91830.98]], "pct15": true, "dist": [["50% للأطباء والعاملين بالمستشفى", 50], ["37% نفقات التشغيل المختلف بالمستشفى", 37], ["7% لدعم صندوق تحسين الخدمة بالمديرية", 7], ["2% لدعم صندوق تحسين بديوان عام وزارة الصحة والسكان", 2], ["2% لمديرية الشئون الصحية لدعم الدراسات العليا", 2], ["2% لدعم مشروعات بمراجعة قطاع الصحة والسكان", 2]]}, {"id": "p2", "label": "نوفمبر وديسمبر 2024", "income": [["عيادة صباحى", 872000], ["عيادة مسائي", 335000], ["زيارة", 56900], ["اقتصادى صباحى", 1866118], ["اقتصادى مسائي", 1450885]], "expense": [["كيماويات المعمل", 63782.7], ["افلام اشعة", 305707], ["مخزن مستلزمات", 5003.44], ["مستلزمات محاليل", 24515.34], ["شهداء", 8580], ["نسبة 80% قرار", 23392], ["اكياس الدم", 60460], ["تحاليل بنك الدم", 26460.95], ["مستلزمات اسنان", 17897.57], ["التعقيم", 143347.74], ["السموم", 3960], ["استرداد", 30704.3], ["منصرف عيادات", 33094.55], ["مطبوعات", 121604.74]], "pct15": true, "dist": [["50% للأطباء والعاملين بالمستشفى", 50], ["37% نفقات التشغيل المختلف بالمستشفى", 37], ["7% لدعم صندوق تحسين الخدمة بالمديرية", 7], ["2% لدعم صندوق تحسين بديوان عام وزارة الصحة والسكان", 2], ["2% لمديرية الشئون الصحية لدعم الدراسات العليا", 2], ["2% لدعم مشروعات بمراجعة قطاع الصحة والسكان", 2]]}, {"id": "p3", "label": "يناير وفبراير 2025", "income": [["عيادة صباحى", 841000], ["عيادة مسائي", 340000], ["زيارة", 55000], ["اقتصادى صباحى", 1475787], ["اقتصادى مسائي", 1328800]], "expense": [["كيماويات المعمل", 49144.71], ["افلام اشعة", 291240.9], ["مخزن مستلزمات", 6276.82], ["محاليل اطفال", 16996.05], ["شهداء", 6745], ["نسبة 80% قرار", 20960], ["اكياس الدم", 58125], ["تحاليل بنك الدم", 32955.94], ["مستلزمات اسنان", 14767.48], ["التعقيم", 138400.33], ["عيادة ايكو اطفال", 2526.57], ["العلاج الطبيعى", 3093.19], ["عيادة ايكو", 6619.27], ["الاشعة التلفيزيونية", 8402.65], ["السموم", 1650], ["استرداد", 29905], ["مطبوعات", 117220.56]], "pct15": true, "dist": [["50% للأطباء والعاملين بالمستشفى", 50], ["37% نفقات التشغيل المختلف بالمستشفى", 37], ["7% لدعم صندوق تحسين الخدمة بالمديرية", 7], ["2% لدعم صندوق تحسين بديوان عام وزارة الصحة والسكان", 2], ["2% لمديرية الشئون الصحية لدعم الدراسات العليا", 2], ["2% لدعم مشروعات بمراجعة قطاع الصحة والسكان", 2]]}, {"id": "p4", "label": "يناير 2026", "income": [["عيادة صباحى", 444000], ["عيادة مسائي", 225000], ["زيارة", 35400], ["اقتصادى صباحى", 919929], ["اقتصادى مسائي", 1101484], ["ايرادات محولة من 33.ع ح", 0]], "expense": [["كيماويات المعمل", 35594.38], ["افلام اشعة", 248260.15], ["محاليل اطفال", 19614.99], ["التعقيم", 61680.51], ["الاسنان", 9466.48], ["مخزن المستلزمات", 3414.92], ["المطبوعات", 64757.94], ["عيادة ايكو اطفال", 1876.09], ["العلاج الطبيعى", 1785], ["عيادة الايكو ورسم العصب", 4202.68], ["الاشعة التلفيزيونية", 1049.94], ["تحاليل بنك دم", 19147.94], ["نسبة 80% قرار", 11656], ["شهداء", 107470], ["السموم", 220], ["اكياس دم", 0], ["غسيل", 0], ["استرداد", 17483]], "pct15": false, "dist": [["50% للأطباء والعاملين بالمستشفى", 50], ["37% نفقات التشغيل المختلف بالمستشفى", 37], ["7% لدعم صندوق تحسين الخدمة بالمديرية", 7], ["2% لدعم صندوق تحسين بديوان عام وزارة الصحة والسكان", 2], ["2% لمديرية الشئون الصحية لدعم الدراسات العليا", 2], ["2% لدعم مشروعات بمراجعة قطاع الصحة والسكان", 2]]}], "supply_p4": [["اشعة عادية", 154600, 167470, 3180, 3063], ["اشعة تليفزيونية", 59475, 70120, 634, 781], ["اشعة مقطعية", 78987, 260435, 298, 974], ["اشعة حج", 9860, 1595, 68, 11], ["رنين", 81625, 51650, 142, 93], ["معمل", 144390, 159010, 2025, 1425], ["معمل حج", 13600, 2200, 68, 11], ["كيس دم", 3380, 24530, 12, 83], ["تحاليل بنك دم", 1115, 11355, 16, 126], ["اشعة ايكو", 28000, 3600, 140, 18], ["ايكو حج", 13600, 2200, 68, 11], ["خدمات حج", 44540, 7205, 68, 11], ["ايكو اطفال", 9020, 1000, 36, 4], ["غيار حروق", 75, 0, 3, 0], ["كشك عظام", 18932, 68670, 414, 1014], ["جراحة", 12265, 21325, 426, 384], ["استقبال اطفال", 10725, 56275, 143, 751], ["استقبال كبار", 6775, 25415, 271, 1049], ["رسم قلب", 5850, 0, 234, 0], ["سمعيات", 12420, 780, 95, 6], ["تخاطب", 565, 0, 19, 0], ["اسنان", 31130, 1450, 391, 21], ["انف واذن", 5010, 170, 150, 5], ["مسالك", 450, 90, 10, 2], ["جلدية/فوق البنفسجية", 4340, 75, 69, 3], ["رسم عصب", 0, 0, 0, 0], ["علاج طبيعي", 25750, 950, 284, 14], ["رسم كشف", 5400, 360, 135, 9], ["خطاب", 14775, 4125, 591, 165], ["شهداء", 55415, 52055, 11083, 10411], ["رباعية الابعاد", 2280, 4180, 6, 11], ["اشعة نسا", 6800, 400, 170, 10], ["عمليات", 28445, 88789, 60, 88], ["جهاز C.arm", 600, 300, 2, 1], ["سموم", 220, 0, 2, 0], ["قرارات", 12020, 2550, 1202, 255], ["إيجار بوفية", 0, 0, 0, 0], ["مرافق", 0, 4235, 0, 121], ["نيابة", 17495, 5770, 24, 8], ["غسيل كلى", 0, 0, 0, 0], ["عنايات", 0, 1100, 0, 2], ["تأمين", 0, 0, 0, 0]], "daftar_p4": [["عيادة صباحى", 444, 106], ["عيادة مسائي", 45, 115], ["زيارة مريض", 17.7, 54], ["دفتر 33/40", 0, 44], ["دفتر 33/80", 13, 54], ["دفتر 37", 2, 44], ["دفتر 19/د", 21986, 0.49]], "dept_p4": [["المعمل", 36423.56], ["الاشعة", 126629.25], ["محاليل اطفال", 281.82], ["التعقيم", 92565.61], ["الاسنان", 10562.34], ["مخزن المستلزمات", 3909.23], ["المطبوعات", 64757.94], ["عيادة ايكو اطفال", 2312.984], ["العلاج الطبيعى", 2352.37], ["رسم العصب", 425.66], ["عيادة الايكو", 2669.9], ["الاشعة التلفزيونية", 2918.73], ["تحاليل بنك دم", 14407.2]]}
+</script>
+
+<script>
+const SEED = JSON.parse(document.getElementById('seed-json').textContent);
+const fmt = n => (n===null||n===undefined||isNaN(n)) ? '—' : Number(n).toLocaleString('en-US',{maximumFractionDigits:2,minimumFractionDigits:0}) + ' ج.م';
+const fmtNum = n => (n===null||n===undefined||isNaN(n)) ? '0' : Number(n).toLocaleString('en-US',{maximumFractionDigits:3});
+const SHEETS = [
+  ['income_dist','الإيرادات والتوزيع'],
+  ['expense','المنصرف'],
+  ['supply','توريد وإيصالات'],
+  ['daftar','منصرف الدفاتر'],
+  ['dept','المنصرف بالأقسام'],
+  ['people','توزيع الأشخاص']
+];
+const MONTHS_KEY = 'sohag_fund_months_v3';
+const OLD_PEOPLE_KEY = 'sohag_fund_people_distribution';
+const OLD_MONTHS_KEY_V2 = 'sohag_fund_months_v2';
+
+let MONTHS = [];
+let currentMonthId = null;
+let currentSheet = 'income_dist';
+let openMonths = new Set();
+let saveTimer = null;
+
+/* ---------------- Firebase / Firestore (مشاركة البيانات بين الأجهزة) ---------------- */
+const firebaseConfig = {
+  apiKey: "AIzaSyAsdjDBoknH3CJOD6G1-1Fxo5_NfyRKRro",
+  authDomain: "hospital-fund-insurance.firebaseapp.com",
+  projectId: "hospital-fund-insurance",
+  storageBucket: "hospital-fund-insurance.firebasestorage.app",
+  messagingSenderId: "113491478965",
+  appId: "1:113491478965:web:7e7a4310f9e4fd12bcf1fc",
+  measurementId: "G-3TSFR7EVNX"
+};
+const FS_COLLECTION = 'sohag_fund';
+const FS_DOC = 'months_v3';
+let fsDb = null;
+try{
+  if(window.firebase){
+    firebase.initializeApp(firebaseConfig);
+    fsDb = firebase.firestore();
+  }
+}catch(e){ console.warn('تعذر تهيئة Firebase:', e); fsDb = null; }
+
+function setCloudStatus(text, ok){
+  const el = document.getElementById('cloud-status');
+  if(el){ el.textContent = text; el.style.color = ok ? '#9fe6c8' : '#f4a19a'; }
+}
+if(!fsDb) setCloudStatus('⚠ لا يوجد اتصال بالسحابة — يعمل النظام محليًا على هذا الجهاز فقط', false);
+
+/* استماع لحظى: أى تعديل يُحفظ من أى جهاز آخر يظهر هنا تلقائيًا (إلا أثناء الكتابة فى حقل) */
+function startRealtimeSync(){
+  if(!fsDb) return;
+  fsDb.collection(FS_COLLECTION).doc(FS_DOC).onSnapshot(function(snap){
+    setCloudStatus('☁️ متصل — البيانات تُحفظ وتُشارك تلقائيًا بين كل الأجهزة', true);
+    if(!snap.exists) return;
+    const data = snap.data();
+    if(!data || !data.json) return;
+    const active = document.activeElement;
+    const isTyping = active && (active.tagName==='INPUT' || active.tagName==='TEXTAREA');
+    if(isTyping) return; // لا تُحدّث الشاشة أثناء كتابة المستخدم لتفادى فقد التركيز
+    try{
+      const parsed = JSON.parse(data.json);
+      if(!Array.isArray(parsed) || !parsed.length) return;
+      if(JSON.stringify(parsed)===JSON.stringify(MONTHS)) return; // لا تغيير فعلى
+      MONTHS = parsed;
+      const seedIds = new Set(SEED.periods.map(p=>p.id));
+      MONTHS.forEach(m=>{ if(seedIds.has(m.id)) m.locked = true; else if(m.locked===undefined) m.locked = false; });
+      if(!MONTHS.find(m=>m.id===currentMonthId)){
+        currentMonthId = MONTHS.length ? MONTHS[MONTHS.length-1].id : null;
+        if(currentMonthId) openMonths.add(currentMonthId);
+      }
+      renderSidebar();
+      renderSheet();
+    }catch(e){}
+  }, function(err){
+    console.warn('Firestore listener error:', err);
+    setCloudStatus('⚠ تعذر الاتصال بالسحابة — يعمل النظام محليًا على هذا الجهاز فقط', false);
+  });
+}
+
+/* ---------------- تخزين عام: Firestore أولاً، ثم نسخة محلية احتياطية ---------------- */
+async function storageGet(key){
+  if(fsDb && key===MONTHS_KEY){
+    try{
+      const snap = await fsDb.collection(FS_COLLECTION).doc(FS_DOC).get();
+      if(snap.exists){
+        const data = snap.data();
+        if(data && data.json){
+          setCloudStatus('☁️ متصل — البيانات تُحفظ وتُشارك تلقائيًا بين كل الأجهزة', true);
+          return data.json;
+        }
+      }
+      setCloudStatus('☁️ متصل بالسحابة — لا توجد بيانات محفوظة بعد', true);
+      return null;
+    }catch(e){
+      console.warn('Firestore get failed, using local storage instead:', e);
+      setCloudStatus('⚠ تعذر الاتصال بالسحابة — يعمل النظام محليًا على هذا الجهاز فقط', false);
+    }
+  }
+  try{
+    if(window.storage){
+      const r = await window.storage.get(key, false);
+      return r ? r.value : null;
+    }
+  }catch(e){}
+  try{ return localStorage.getItem(key); }catch(e){ return null; }
+}
+async function storageSet(key, value){
+  let cloudOk = false;
+  if(fsDb && key===MONTHS_KEY){
+    try{
+      await fsDb.collection(FS_COLLECTION).doc(FS_DOC).set({
+        json: value,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+      cloudOk = true;
+      setCloudStatus('☁️ متصل — البيانات تُحفظ وتُشارك تلقائيًا بين كل الأجهزة', true);
+    }catch(e){
+      console.warn('Firestore set failed, saving locally instead:', e);
+      setCloudStatus('⚠ تعذر الحفظ على السحابة — تم الحفظ محليًا على هذا الجهاز فقط', false);
+    }
+  }
+  let localOk = false;
+  try{
+    if(window.storage){ await window.storage.set(key, value, false); localOk = true; }
+  }catch(e){}
+  try{ localStorage.setItem(key, value); localOk = true; }catch(e){}
+  return cloudOk || localOk;
+}
+
+function uid(){ return 'm'+Date.now()+Math.floor(Math.random()*1000); }
+function escapeHtml(s){ return String(s??'').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+function sumCol(rows, idx){ return rows.reduce((s,r)=> s + (Number(r[idx])||0), 0); }
+function setText(id,val){ const e=document.getElementById(id); if(e) e.textContent=val; }
+function getCurrentMonth(){ return MONTHS.find(m=>m.id===currentMonthId) || null; }
+
+/* ---------------- البيانات الأصلية (ثابتة ومقفولة) ---------------- */
+function seedFromOriginal(){
+  return SEED.periods.map(p=>({
+    id: p.id,
+    label: p.label,
+    locked: true,
+    income: p.income.map(r=>[r[0], r[1]]),
+    expense: p.expense.map(r=>[r[0], r[1]]),
+    deduct15: !!p.pct15,
+    distRows: p.dist.map(d=>[d[0], d[1]]),
+    supply: (p.id==='p4') ? SEED.supply_p4.map(r=>[r[0],r[1],r[2],r[3],r[4]]) : [],
+    daftar: (p.id==='p4') ? SEED.daftar_p4.map(r=>[r[0],r[1],r[2]]) : [],
+    deptExpense: (p.id==='p4') ? SEED.dept_p4.map(r=>[r[0],r[1]]) : [],
+    people: []
+  }));
+}
+
+function defaultDistRows(){
+  return [
+    ['50% للأطباء والعاملين بالمستشفى',50],
+    ['37% نفقات التشغيل المختلف بالمستشفى',37],
+    ['7% لدعم صندوق تحسين الخدمة بالمديرية',7],
+    ['2% لدعم صندوق تحسين بديوان عام وزارة الصحة والسكان',2],
+    ['2% لمديرية الشئون الصحية لدعم الدراسات العليا',2],
+    ['2% لدعم مشروعات بمراجعة قطاع الصحة والسكان',2]
+  ];
+}
+
+/* بناء نفس خانات آخر شهر مرجعى (يناير 2026) فارغة (بقيمة صفر) لأى شهر جديد */
+function templateEmptyRows(sourceRows, extraCols){
+  return sourceRows.map(r => [r[0], ...Array(extraCols).fill(0)]);
+}
+
+/* ---------------- تحميل / حفظ الحالة ---------------- */
+async function init(){
+  let raw = await storageGet(MONTHS_KEY);
+  if(!raw){
+    // محاولة الترقية من نسخة تخزين سابقة إن وجدت
+    raw = await storageGet(OLD_MONTHS_KEY_V2);
+  }
+  if(raw){
+    try{
+      const parsed = JSON.parse(raw);
+      if(Array.isArray(parsed) && parsed.length) MONTHS = parsed;
+      else MONTHS = seedFromOriginal();
+    }catch(e){ MONTHS = seedFromOriginal(); }
+  } else {
+    MONTHS = seedFromOriginal();
+    const oldPeople = await storageGet(OLD_PEOPLE_KEY);
+    if(oldPeople){
+      try{
+        const arr = JSON.parse(oldPeople);
+        if(Array.isArray(arr) && arr.length){
+          const last = MONTHS[MONTHS.length-1];
+          last.people = arr.map(p=>[p.name||'', p.morning||0, p.evening||0, p.fund||0, p.insurance||0, p.expense||0]);
+        }
+      }catch(e){}
+    }
+  }
+  // تأكيد أن الشهور الأصلية دائمًا مقفولة حتى لو كانت محفوظة من نسخة أقدم بدون علم "locked"
+  const seedIds = new Set(SEED.periods.map(p=>p.id));
+  MONTHS.forEach(m=>{ if(seedIds.has(m.id)) m.locked = true; else if(m.locked===undefined) m.locked = false; });
+
+  if(MONTHS.length){
+    currentMonthId = MONTHS[MONTHS.length-1].id;
+    openMonths.add(currentMonthId);
+  }
+  renderSidebar();
+  renderSheet();
+  saveAll(false);
+  startRealtimeSync();
+}
+
+function scheduleAutoSave(){
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(()=>saveAll(false), 900);
+}
+
+async function saveAll(manual){
+  const ok = await storageSet(MONTHS_KEY, JSON.stringify(MONTHS));
+  const toast = document.getElementById('save-toast');
+  toast.textContent = ok ? '✔ تم الحفظ' : '⚠ تعذر الحفظ فى هذا المتصفح';
+  toast.classList.toggle('err', !ok);
+  toast.classList.add('show');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(()=>toast.classList.remove('show'), 2200);
+}
+
+/* ---------------- الشريط الجانبى ---------------- */
+function toggleMonthOpen(id){
+  if(openMonths.has(id)) openMonths.delete(id); else openMonths.add(id);
+  renderSidebar();
+}
+
+function selectSheet(monthId, sheetKey){
+  currentMonthId = monthId;
+  currentSheet = sheetKey;
+  openMonths.add(monthId);
+  renderSidebar();
+  renderSheet();
+}
+
+function renderSidebar(){
+  const list = document.getElementById('month-list');
+  list.innerHTML = MONTHS.map(m=>{
+    const isOpen = openMonths.has(m.id);
+    const isActiveMonth = m.id===currentMonthId;
+    const toolsHtml = m.locked
+      ? `<div class="locked-note">🔒 بيانات محفوظة — للعرض فقط</div>`
+      : `<div class="month-tools">
+           <button class="tiny-btn" onclick="renameMonth('${m.id}')">✏ إعادة تسمية</button>
+           <button class="tiny-btn danger" onclick="deleteMonth('${m.id}')">🗑 حذف الشهر</button>
+         </div>`;
+    return `<div class="month-item">
+      <button class="month-header ${isActiveMonth?'active-month':''}" onclick="toggleMonthOpen('${m.id}')">
+        <span class="chev ${isOpen?'open':''}">▸</span>
+        <span class="m-label">${escapeHtml(m.label)}</span>
+        ${m.locked?'<span class="lock-ic" title="بيانات محفوظة">🔒</span>':''}
+      </button>
+      <div class="sheet-list ${isOpen?'open':''}">
+        ${SHEETS.map(([key,lbl])=>`<button class="sheet-btn ${(isActiveMonth&&currentSheet===key)?'active':''}" onclick="selectSheet('${m.id}','${key}')">${lbl}</button>`).join('')}
+        ${toolsHtml}
+      </div>
+    </div>`;
+  }).join('') || '<div style="padding:16px;color:#9fd6c8;font-size:.76rem">لا توجد شهور بعد</div>';
+}
+
+function addMonth(){
+  const label = prompt('اسم الشهر الجديد (مثال: مارس وابريل 2026):');
+  if(!label || !label.trim()) return;
+  const p4 = SEED.periods[SEED.periods.length-1];
+  const m = {
+    id: uid(), label: label.trim(), locked:false,
+    income: templateEmptyRows(p4.income, 1),
+    expense: templateEmptyRows(p4.expense, 1),
+    deduct15: false,
+    distRows: defaultDistRows(),
+    supply: templateEmptyRows(SEED.supply_p4, 4),
+    daftar: templateEmptyRows(SEED.daftar_p4, 2),
+    deptExpense: templateEmptyRows(SEED.dept_p4, 1),
+    people: []
+  };
+  MONTHS.push(m);
+  openMonths.add(m.id);
+  currentMonthId = m.id;
+  currentSheet = 'income_dist';
+  renderSidebar();
+  renderSheet();
+  scheduleAutoSave();
+}
+
+function renameMonth(id){
+  const m = MONTHS.find(x=>x.id===id);
+  if(!m || m.locked) return;
+  const val = prompt('الاسم الجديد للشهر:', m.label);
+  if(val && val.trim()){
+    m.label = val.trim();
+    renderSidebar();
+    if(currentMonthId===id) renderSheet();
+    scheduleAutoSave();
+  }
+}
+
+function deleteMonth(id){
+  const m = MONTHS.find(x=>x.id===id);
+  if(!m || m.locked) return;
+  if(!confirm('هل أنت متأكد من حذف هذا الشهر وكل بياناته؟ لا يمكن التراجع.')) return;
+  MONTHS = MONTHS.filter(x=>x.id!==id);
+  openMonths.delete(id);
+  if(currentMonthId===id){
+    currentMonthId = MONTHS.length ? MONTHS[MONTHS.length-1].id : null;
+    currentSheet = 'income_dist';
+    if(currentMonthId) openMonths.add(currentMonthId);
+  }
+  renderSidebar();
+  renderSheet();
+  scheduleAutoSave();
+}
+
+/* ---------------- إضافة / حذف صفوف عامة (فقط للشهور غير المقفولة) ---------------- */
+function blankRowFor(arrName){
+  switch(arrName){
+    case 'income': case 'expense': case 'deptExpense': return ['',0];
+    case 'distRows': return ['بند توزيع جديد',0];
+    case 'supply': return ['',0,0,0,0];
+    case 'daftar': return ['',0,0];
+    case 'people': return ['',0,0,0,0,0];
+    default: return [''];
+  }
+}
+function addRow(arrName){
+  const m = getCurrentMonth(); if(!m || m.locked) return;
+  m[arrName].push(blankRowFor(arrName));
+  renderSheet();
+  scheduleAutoSave();
+}
+function removeRow(arrName, idx){
+  const m = getCurrentMonth(); if(!m || m.locked) return;
+  m[arrName].splice(idx,1);
+  renderSheet();
+  scheduleAutoSave();
+}
+
+/* ---------------- استيراد إكسل ---------------- */
+function colsFor(arrName){
+  switch(arrName){
+    case 'income': case 'expense': case 'deptExpense': case 'distRows': return 2;
+    case 'daftar': return 3;
+    case 'supply': return 5;
+    case 'people': return 6;
+    default: return 2;
+  }
+}
+function triggerImport(arrName){
+  const m = getCurrentMonth();
+  if(!m || m.locked){ alert('هذا الشهر بيانات محفوظة للعرض فقط ولا يمكن تعديلها أو الاستيراد إليها.'); return; }
+  const input = document.getElementById('excel-input');
+  input.dataset.target = arrName;
+  input.value = '';
+  input.click();
+}
+document.getElementById('excel-input').addEventListener('change', function(e){
+  const file = e.target.files[0];
+  const arrName = e.target.dataset.target;
+  if(!file || !arrName) return;
+  const reader = new FileReader();
+  reader.onload = function(evt){
+    try{
+      const data = new Uint8Array(evt.target.result);
+      const wb = XLSX.read(data, {type:'array'});
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      let rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
+      rows = rows.filter(r => r.some(c => String(c).trim() !== ''));
+      if(!rows.length){ alert('الملف فارغ أو لا يحتوى على بيانات.'); return; }
+      const expectedCols = colsFor(arrName);
+      const first = rows[0];
+      const looksHeader = first.slice(1).some(c => c!=='' && isNaN(parseFloat(c)));
+      const startIdx = looksHeader ? 1 : 0;
+      const parsed = [];
+      for(let i=startIdx;i<rows.length;i++){
+        const r = rows[i];
+        if(r[0]===undefined || String(r[0]).trim()==='') continue;
+        const row = [String(r[0]).trim()];
+        for(let c=1;c<expectedCols;c++){ row.push(parseFloat(r[c])||0); }
+        parsed.push(row);
+      }
+      if(!parsed.length){ alert('لم يتم العثور على صفوف بيانات صالحة فى الملف.'); return; }
+      const replace = confirm('تم قراءة '+parsed.length+' صف من الملف.\nاضغط "موافق" لاستبدال البيانات الحالية بالكامل بهذه البيانات،\nأو اضغط "إلغاء" لإضافتها إلى البيانات الحالية.');
+      const m = getCurrentMonth();
+      if(!m || m.locked) return;
+      if(replace){ m[arrName] = parsed; } else { m[arrName] = m[arrName].concat(parsed); }
+      renderSheet();
+      scheduleAutoSave();
+    }catch(err){
+      alert('تعذّرت قراءة الملف. تأكد أنه ملف إكسل صالح (xlsx أو xls أو csv).');
+    }
+  };
+  reader.readAsArrayBuffer(file);
+});
+
+/* ---------------- ربط الإدخال الحى (بدون فقد التركيز أثناء الكتابة) ---------------- */
+function bindLiveInputs(){
+  const c = document.getElementById('sheet-container');
+  c.oninput = (e)=>{
+    const t = e.target;
+    if(!t.dataset || !t.dataset.arr) return;
+    const m = getCurrentMonth(); if(!m || m.locked) return;
+    const arr = m[t.dataset.arr];
+    const idx = Number(t.dataset.idx);
+    const col = Number(t.dataset.col);
+    if(!arr || !arr[idx]) return;
+    arr[idx][col] = (t.dataset.type==='text') ? t.value : (parseFloat(t.value)||0);
+    liveRecalc(t.dataset.arr);
+    scheduleAutoSave();
+  };
+  c.onchange = (e)=>{
+    if(e.target.id==='deduct15-chk'){
+      const m = getCurrentMonth(); if(!m || m.locked) return;
+      m.deduct15 = e.target.checked;
+      renderSheet();
+      scheduleAutoSave();
+    }
+  };
+}
+
+function liveRecalc(arrName){
+  const m = getCurrentMonth(); if(!m) return;
+  if(arrName==='income'){
+    setText('simple-total-income', fmt(sumCol(m.income,1)));
+    recalcDist();
+  } else if(arrName==='expense' || arrName==='deptExpense'){
+    setText('simple-total-'+arrName, fmt(sumCol(m[arrName],1)));
+    if(arrName==='expense') recalcDist();
+  } else if(arrName==='distRows'){
+    recalcDist();
+  } else if(arrName==='supply'){
+    recalcSupply();
+  } else if(arrName==='daftar'){
+    recalcDaftar();
+  } else if(arrName==='people'){
+    recalcPeople();
+  }
+}
+
+/* ---------------- عرض الشيت الحالى ---------------- */
+function updateHeader(m, sheetLabel){
+  document.getElementById('crumb').innerHTML = m ? `الشهر: <b>${escapeHtml(m.label)}</b>` : '—';
+  document.getElementById('page-title').textContent = sheetLabel || '—';
+}
+
+function renderSheet(){
+  const container = document.getElementById('sheet-container');
+  const m = getCurrentMonth();
+  if(!m){
+    updateHeader(null, 'لا يوجد شهر محدد');
+    container.innerHTML = '<div class="empty-state">اختر شهرًا من القائمة الجانبية، أو أضف شهرًا جديدًا بالضغط على "➕ إضافة شهر جديد"</div>';
+    return;
+  }
+  const sheetLabel = (SHEETS.find(s=>s[0]===currentSheet)||[])[1] || '';
+  updateHeader(m, sheetLabel);
+
+  const lockBanner = m.locked ? `<div class="lock-banner">🔒 هذا شهر سابق وبياناته محفوظة نهائيًا — للعرض والطباعة فقط، ولا يمكن التعديل عليه.</div>` : '';
+
+  let html = '';
+  switch(currentSheet){
+    case 'income_dist': html = renderIncomeDistSheet(m); break;
+    case 'expense': html = renderSimpleSheet(m,'expense','المنصرف','بند المنصرف'); break;
+    case 'dept': html = renderSimpleSheet(m,'deptExpense','المنصرف بالأقسام','القسم'); break;
+    case 'supply': html = renderSupplySheet(m); break;
+    case 'daftar': html = renderDaftarSheet(m); break;
+    case 'people': html = renderPeopleSheet(m); break;
+    default: html = '';
+  }
+  container.innerHTML = lockBanner + html;
+  bindLiveInputs();
+}
+
+/* --- خلية إدخال أو نص ثابت (حسب حالة القفل) --- */
+function cell(m, arrName, idx, col, value, type, extraClass){
+  extraClass = extraClass || '';
+  if(m.locked){
+    const cls = 'locked-cell ' + extraClass + (type==='text' ? ' name-locked' : '');
+    const display = type==='text' ? escapeHtml(value) : fmtNum(value);
+    return `<span class="${cls}">${display}</span>`;
+  }
+  if(type==='text'){
+    return `<input class="cell-input name-input ${extraClass}" data-arr="${arrName}" data-idx="${idx}" data-col="${col}" data-type="text" value="${escapeHtml(value)}">`;
+  }
+  return `<input class="cell-input ${extraClass}" type="number" step="0.01" data-arr="${arrName}" data-idx="${idx}" data-col="${col}" value="${value}">`;
+}
+
+/* --- شيت بسيط (بيان + قيمة): المنصرف / الأقسام --- */
+function renderSimpleSheet(m, arrName, title, colLabel){
+  const rows = m[arrName];
+  const rowsHtml = rows.map((r,i)=>`<tr>
+      <td>${cell(m,arrName,i,0,r[0],'text')}</td>
+      <td>${cell(m,arrName,i,1,r[1],'num')}</td>
+      <td class="no-print">${m.locked?'':`<button class="btn-er" onclick="removeRow('${arrName}',${i})">✕</button>`}</td>
+    </tr>`).join('') || `<tr><td colspan="3" style="color:var(--tm);font-weight:600">لا توجد بيانات بعد${m.locked?'':' — اضغط "➕ إضافة بند"'}</td></tr>`;
+  const btns = m.locked ? '' : `<div class="head-btns no-print">
+      <button class="btn btn-o btn-sm" onclick="triggerImport('${arrName}')">📥 استيراد إكسل</button>
+      <button class="btn btn-p btn-sm" onclick="addRow('${arrName}')">➕ إضافة بند</button>
+    </div>`;
+  return `
+  <div class="sheet-card">
+    <div class="sheet-card-head">
+      <h2>${title}</h2>
+      ${btns}
+    </div>
+    <table class="tbl">
+      <thead><tr><th>${colLabel}</th><th style="width:160px">القيمة (ج.م)</th><th class="no-print" style="width:40px"></th></tr></thead>
+      <tbody>${rowsHtml}</tbody>
+      <tfoot><tr><td>الإجمالى</td><td class="num" id="simple-total-${arrName}">${fmt(sumCol(rows,1))}</td><td class="no-print"></td></tr></tfoot>
+    </table>
+  </div>`;
+}
+
+/* --- شيت الإيرادات والتوزيع (صفحة واحدة) --- */
+function renderIncomeDistSheet(m){
+  const rows = m.income;
+  const incomeRowsHtml = rows.map((r,i)=>`<tr>
+      <td>${cell(m,'income',i,0,r[0],'text')}</td>
+      <td>${cell(m,'income',i,1,r[1],'num')}</td>
+      <td class="no-print">${m.locked?'':`<button class="btn-er" onclick="removeRow('income',${i})">✕</button>`}</td>
+    </tr>`).join('') || `<tr><td colspan="3" style="color:var(--tm);font-weight:600">لا توجد بيانات بعد${m.locked?'':' — اضغط "➕ إضافة بند"'}</td></tr>`;
+
+  const incomeBtns = m.locked ? '' : `<div class="head-btns no-print">
+      <button class="btn btn-o btn-sm" onclick="triggerImport('income')">📥 استيراد إكسل</button>
+      <button class="btn btn-p btn-sm" onclick="addRow('income')">➕ إضافة بند</button>
+    </div>`;
+
+  const incomeTotal = sumCol(m.income,1);
+  const expenseTotal = sumCol(m.expense,1);
+  const net = incomeTotal - expenseTotal;
+  const pct15Val = m.deduct15 ? net*0.15 : 0;
+  const distributable = net - pct15Val;
+  const pctSum = sumCol(m.distRows,1);
+  const warn = Math.abs(pctSum-100) > 0.05;
+
+  const deduct15Cell = m.locked
+    ? `<span class="locked-cell">خصم 15% من صافى الإيراد: ${m.deduct15 ? 'مُطبّق' : 'غير مُطبّق'}</span>`
+    : `<label style="display:flex;gap:8px;align-items:center;cursor:pointer;font-weight:700">
+         <input type="checkbox" id="deduct15-chk" ${m.deduct15?'checked':''}> خصم 15% من صافى الإيراد قبل التوزيع
+       </label>`;
+
+  const distBtns = m.locked ? '' : `<div class="head-btns no-print">
+      <button class="btn btn-o btn-sm" onclick="triggerImport('distRows')">📥 استيراد إكسل</button>
+      <button class="btn btn-p btn-sm" onclick="addRow('distRows')">➕ إضافة بند توزيع</button>
+    </div>`;
+
+  const cards = m.distRows.map((r,i)=>{
+    const val = distributable * (Number(r[1])||0) / 100;
+    const pctPart = m.locked
+      ? `<span class="dist-pct-locked">${r[1]}%</span>`
+      : `<input class="cell-input dist-pct-input" type="number" step="0.1" data-arr="distRows" data-idx="${i}" data-col="1" value="${r[1]}">%`;
+    const labelPart = m.locked
+      ? `<span class="lb-locked">${escapeHtml(r[0])}</span>`
+      : `<div class="lb"><input class="cell-input" data-arr="distRows" data-idx="${i}" data-col="0" data-type="text" value="${escapeHtml(r[0])}"></div>`;
+    const delBtn = m.locked ? '' : `<button class="btn-er no-print" style="margin-top:8px" onclick="removeRow('distRows',${i})">✕ حذف</button>`;
+    return `<div class="dist-card">
+      ${pctPart}
+      ${labelPart}
+      <div class="vv num" id="dist-val-${i}">${fmt(val)}</div>
+      ${delBtn}
+    </div>`;
+  }).join('') || '<div style="color:var(--tm);font-weight:600;grid-column:1/-1">لا توجد بنود توزيع بعد</div>';
+
+  return `
+  <div class="sheet-card">
+    <div class="sheet-card-head">
+      <h2>الإيرادات</h2>
+      ${incomeBtns}
+    </div>
+    <table class="tbl">
+      <thead><tr><th>بند الإيراد</th><th style="width:160px">القيمة (ج.م)</th><th class="no-print" style="width:40px"></th></tr></thead>
+      <tbody>${incomeRowsHtml}</tbody>
+      <tfoot><tr><td>الإجمالى</td><td class="num" id="simple-total-income">${fmt(incomeTotal)}</td><td class="no-print"></td></tr></tfoot>
+    </table>
+  </div>
+
+  <div class="sheet-card">
+    <h2>حساب صافى الإيراد القابل للتوزيع</h2>
+    <table class="tbl" style="margin-top:14px">
+      <tbody>
+        <tr><td>إجمالى الإيراد</td><td class="num">${fmt(incomeTotal)}</td></tr>
+        <tr><td>إجمالى المنصرف</td><td class="num">${fmt(expenseTotal)}</td></tr>
+        <tr><td style="font-weight:900">صافى الإيراد (الإيراد − المنصرف)</td><td class="num" style="font-weight:900;color:var(--p)">${fmt(net)}</td></tr>
+        <tr><td>${deduct15Cell}</td><td class="num">${fmt(pct15Val)}</td></tr>
+        <tr><td style="font-weight:900">القابل للتوزيع</td><td class="num" style="font-weight:900;color:var(--a)">${fmt(distributable)}</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="sheet-card">
+    <div class="sheet-card-head">
+      <h2>نسب توزيع المبلغ القابل للتوزيع</h2>
+      ${distBtns}
+    </div>
+    <div class="pct-sum-note ${warn?'warn':''}" id="pct-sum-note">إجمالى النسب الحالى: ${pctSum.toFixed(1)}% ${warn?'⚠ يفضل أن يكون المجموع 100%':'✓'}</div>
+    <div class="g6">${cards}</div>
+  </div>
+
+  <div class="sheet-card">
+    <div class="sign-row no-print">
+      <div class="sign-item">المختص<span>...............</span></div>
+      <div class="sign-item">المدير المالى<span>...............</span></div>
+      <div class="sign-item">المدير المالى والإدارى<span>...............</span></div>
+      <div class="sign-item">يعتمد<span>...............</span></div>
+    </div>
+  </div>`;
+}
+
+function recalcDist(){
+  const m = getCurrentMonth(); if(!m) return;
+  const incomeTotal = sumCol(m.income,1);
+  const expenseTotal = sumCol(m.expense,1);
+  const net = incomeTotal - expenseTotal;
+  const distributable = net - (m.deduct15 ? net*0.15 : 0);
+  const pctSum = sumCol(m.distRows,1);
+  const warn = Math.abs(pctSum-100) > 0.05;
+  m.distRows.forEach((r,i)=>{
+    const val = distributable * (Number(r[1])||0) / 100;
+    setText('dist-val-'+i, fmt(val));
+  });
+  const note = document.getElementById('pct-sum-note');
+  if(note){
+    note.textContent = `إجمالى النسب الحالى: ${pctSum.toFixed(1)}% ${warn?'⚠ يفضل أن يكون المجموع 100%':'✓'}`;
+    note.classList.toggle('warn', warn);
+  }
+}
+
+/* --- شيت توريد وإيصالات --- */
+function renderSupplySheet(m){
+  const rows = m.supply;
+  const rowsHtml = rows.map((r,i)=>{
+    const ts = (Number(r[1])||0)+(Number(r[2])||0);
+    const tr = (Number(r[3])||0)+(Number(r[4])||0);
+    return `<tr>
+      <td>${cell(m,'supply',i,0,r[0],'text')}</td>
+      <td>${cell(m,'supply',i,1,r[1],'num')}</td>
+      <td>${cell(m,'supply',i,2,r[2],'num')}</td>
+      <td class="num" style="font-weight:800" id="sup-ts-${i}">${fmtNum(ts)}</td>
+      <td>${cell(m,'supply',i,3,r[3],'num')}</td>
+      <td>${cell(m,'supply',i,4,r[4],'num')}</td>
+      <td class="num" style="font-weight:800" id="sup-tr-${i}">${fmtNum(tr)}</td>
+      <td class="no-print">${m.locked?'':`<button class="btn-er" onclick="removeRow('supply',${i})">✕</button>`}</td>
+    </tr>`;
+  }).join('') || `<tr><td colspan="8" style="color:var(--tm);font-weight:600">لا توجد بيانات بعد${m.locked?'':' — اضغط "➕ إضافة بند"'}</td></tr>`;
+
+  const btns = m.locked ? '' : `<div class="head-btns no-print">
+      <button class="btn btn-o btn-sm" onclick="triggerImport('supply')">📥 استيراد إكسل</button>
+      <button class="btn btn-p btn-sm" onclick="addRow('supply')">➕ إضافة بند</button>
+    </div>`;
+
+  return `
+  <div class="sheet-card">
+    <div class="sheet-card-head">
+      <h2>تفصيل التوريد والإيصالات</h2>
+      ${btns}
+    </div>
+    <div style="overflow-x:auto">
+    <table class="tbl">
+      <thead><tr>
+        <th style="min-width:130px">البيان</th><th>توريد صباحى</th><th>توريد مسائى</th><th>إجمالى التوريد</th>
+        <th>إيصالات صباحى</th><th>إيصالات مسائى</th><th>إجمالى الإيصالات</th><th class="no-print" style="width:40px"></th>
+      </tr></thead>
+      <tbody id="supply-body">${rowsHtml}</tbody>
+      <tfoot>
+        <tr>
+          <td>الإجمالى</td>
+          <td class="num" id="sf-ms">${fmtNum(sumCol(rows,1))}</td>
+          <td class="num" id="sf-es">${fmtNum(sumCol(rows,2))}</td>
+          <td class="num" id="sf-ts">${fmtNum(sumCol(rows,1)+sumCol(rows,2))}</td>
+          <td class="num" id="sf-mr">${fmtNum(sumCol(rows,3))}</td>
+          <td class="num" id="sf-er">${fmtNum(sumCol(rows,4))}</td>
+          <td class="num" id="sf-tr">${fmtNum(sumCol(rows,3)+sumCol(rows,4))}</td>
+          <td class="no-print"></td>
+        </tr>
+        <tr>
+          <td colspan="6">الإجمالى بعد حذف عدد طابع الشهداء</td>
+          <td class="num" id="sf-am">${fmtNum(supplyAfterMartyrs(rows))}</td>
+          <td class="no-print"></td>
+        </tr>
+      </tfoot>
+    </table>
+    </div>
+  </div>`;
+}
+function supplyAfterMartyrs(rows){
+  const totalReceipts = sumCol(rows,3)+sumCol(rows,4);
+  const martyrs = rows.find(r=>String(r[0]).includes('شهداء'));
+  const martyrsReceipts = martyrs ? (Number(martyrs[3])||0)+(Number(martyrs[4])||0) : 0;
+  return totalReceipts - martyrsReceipts;
+}
+function recalcSupply(){
+  const m = getCurrentMonth(); if(!m) return;
+  const rows = m.supply;
+  rows.forEach((r,i)=>{
+    setText('sup-ts-'+i, fmtNum((Number(r[1])||0)+(Number(r[2])||0)));
+    setText('sup-tr-'+i, fmtNum((Number(r[3])||0)+(Number(r[4])||0)));
+  });
+  setText('sf-ms', fmtNum(sumCol(rows,1)));
+  setText('sf-es', fmtNum(sumCol(rows,2)));
+  setText('sf-ts', fmtNum(sumCol(rows,1)+sumCol(rows,2)));
+  setText('sf-mr', fmtNum(sumCol(rows,3)));
+  setText('sf-er', fmtNum(sumCol(rows,4)));
+  setText('sf-tr', fmtNum(sumCol(rows,3)+sumCol(rows,4)));
+  setText('sf-am', fmtNum(supplyAfterMartyrs(rows)));
+}
+
+/* --- شيت منصرف الدفاتر --- */
+function renderDaftarSheet(m){
+  const rows = m.daftar;
+  const rowsHtml = rows.map((r,i)=>{
+    const total = (Number(r[1])||0)*(Number(r[2])||0);
+    return `<tr>
+      <td>${cell(m,'daftar',i,0,r[0],'text')}</td>
+      <td>${cell(m,'daftar',i,1,r[1],'num')}</td>
+      <td>${cell(m,'daftar',i,2,r[2],'num')}</td>
+      <td class="num" style="font-weight:800" id="daf-t-${i}">${fmt(total)}</td>
+      <td class="no-print">${m.locked?'':`<button class="btn-er" onclick="removeRow('daftar',${i})">✕</button>`}</td>
+    </tr>`;
+  }).join('') || `<tr><td colspan="5" style="color:var(--tm);font-weight:600">لا توجد بيانات بعد${m.locked?'':' — اضغط "➕ إضافة دفتر"'}</td></tr>`;
+
+  const grand = rows.reduce((s,r)=> s + (Number(r[1])||0)*(Number(r[2])||0), 0);
+  const btns = m.locked ? '' : `<div class="head-btns no-print">
+      <button class="btn btn-o btn-sm" onclick="triggerImport('daftar')">📥 استيراد إكسل</button>
+      <button class="btn btn-p btn-sm" onclick="addRow('daftar')">➕ إضافة دفتر</button>
+    </div>`;
+
+  return `
+  <div class="sheet-card">
+    <div class="sheet-card-head">
+      <h2>منصرف الدفاتر</h2>
+      ${btns}
+    </div>
+    <table class="tbl">
+      <thead><tr><th>اسم الدفتر</th><th>العدد</th><th>سعر الدفتر</th><th>إجمالى السعر</th><th class="no-print" style="width:40px"></th></tr></thead>
+      <tbody id="daftar-body">${rowsHtml}</tbody>
+      <tfoot><tr><td colspan="3">الإجمالى الكلى</td><td class="num" id="daf-grand">${fmt(grand)}</td><td class="no-print"></td></tr></tfoot>
+    </table>
+  </div>`;
+}
+function recalcDaftar(){
+  const m = getCurrentMonth(); if(!m) return;
+  const rows = m.daftar;
+  rows.forEach((r,i)=>{
+    setText('daf-t-'+i, fmt((Number(r[1])||0)*(Number(r[2])||0)));
+  });
+  const grand = rows.reduce((s,r)=> s + (Number(r[1])||0)*(Number(r[2])||0), 0);
+  setText('daf-grand', fmt(grand));
+}
+
+/* --- شيت توزيع الأشخاص --- */
+function renderPeopleSheet(m){
+  const rows = m.people;
+  const rowsHtml = rows.map((r,i)=>{
+    const total = (Number(r[1])||0)+(Number(r[2])||0)+(Number(r[3])||0)+(Number(r[4])||0)+(Number(r[5])||0);
+    return `<tr>
+      <td>${cell(m,'people',i,0,r[0],'text')}</td>
+      <td>${cell(m,'people',i,1,r[1],'num')}</td>
+      <td>${cell(m,'people',i,2,r[2],'num')}</td>
+      <td>${cell(m,'people',i,3,r[3],'num')}</td>
+      <td>${cell(m,'people',i,4,r[4],'num')}</td>
+      <td>${cell(m,'people',i,5,r[5],'num')}</td>
+      <td class="num" style="font-weight:900;color:var(--p)" id="ppl-t-${i}">${fmt(total)}</td>
+      <td class="no-print">${m.locked?'':`<button class="btn-er" onclick="removeRow('people',${i})">✕</button>`}</td>
+    </tr>`;
+  }).join('') || `<tr><td colspan="8" style="color:var(--tm);font-weight:600">لا توجد بيانات بعد${m.locked?'':' — اضغط "➕ إضافة شخص"'}</td></tr>`;
+
+  const totals = [1,2,3,4,5].map(c=>sumCol(rows,c));
+  const grand = totals.reduce((a,b)=>a+b,0);
+  const btns = m.locked ? '' : `<div class="head-btns no-print">
+      <button class="btn btn-o btn-sm" onclick="triggerImport('people')">📥 استيراد إكسل</button>
+      <button class="btn btn-p btn-sm" onclick="addRow('people')">➕ إضافة شخص</button>
+    </div>`;
+
+  return `
+  <div class="sheet-card">
+    <div class="sheet-card-head">
+      <h2>توزيع مستحقات صندوق تحسين الخدمة على الأشخاص</h2>
+      ${btns}
+    </div>
+    <div style="overflow-x:auto">
+    <table class="tbl">
+      <thead><tr>
+        <th style="min-width:150px">اسم الشخص</th>
+        <th>عيادة خارجية صباحى</th><th>عيادة خارجية مسائى</th><th>صندوق</th><th>تأمين</th><th>نفقة</th>
+        <th style="width:120px">الإجمالى</th><th class="no-print" style="width:40px"></th>
+      </tr></thead>
+      <tbody id="people-body">${rowsHtml}</tbody>
+      <tfoot>
+        <tr>
+          <td>الإجمالى الكلى</td>
+          <td class="num" id="pt-1">${fmt(totals[0])}</td>
+          <td class="num" id="pt-2">${fmt(totals[1])}</td>
+          <td class="num" id="pt-3">${fmt(totals[2])}</td>
+          <td class="num" id="pt-4">${fmt(totals[3])}</td>
+          <td class="num" id="pt-5">${fmt(totals[4])}</td>
+          <td class="num" id="pt-grand">${fmt(grand)}</td>
+          <td class="no-print"></td>
+        </tr>
+      </tfoot>
+    </table>
+    </div>
+  </div>
+  <div class="sheet-card">
+    <div class="sign-row no-print">
+      <div class="sign-item">أمين الصندوق<span>...............</span></div>
+      <div class="sign-item">المدير المالى<span>...............</span></div>
+      <div class="sign-item">المدير المالى والإدارى<span>...............</span></div>
+      <div class="sign-item">يعتمد<span>...............</span></div>
+    </div>
+  </div>`;
+}
+function recalcPeople(){
+  const m = getCurrentMonth(); if(!m) return;
+  const rows = m.people;
+  rows.forEach((r,i)=>{
+    const total = (Number(r[1])||0)+(Number(r[2])||0)+(Number(r[3])||0)+(Number(r[4])||0)+(Number(r[5])||0);
+    setText('ppl-t-'+i, fmt(total));
+  });
+  const totals = [1,2,3,4,5].map(c=>sumCol(rows,c));
+  totals.forEach((v,i)=> setText('pt-'+(i+1), fmt(v)));
+  setText('pt-grand', fmt(totals.reduce((a,b)=>a+b,0)));
+}
+
+init();
+</script>
+
+</body>
+</html>
