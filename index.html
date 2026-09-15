@@ -132,6 +132,20 @@ body{font-family:'Noto Kufi Arabic',sans-serif;background:var(--bg);color:var(--
 .save-toast.show{opacity:1;transform:translateY(0)}
 .save-toast.err{background:var(--er)}
 
+/* شاشة إدخال التوريد السريع */
+.entry-form-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:14px}
+@media(max-width:900px){.entry-form-grid{grid-template-columns:repeat(2,1fr)}}
+.ef-field label{display:block;font-size:.68rem;font-weight:800;color:var(--tm);margin-bottom:5px}
+.seg-toggle{display:flex;border:1.5px solid var(--b);border-radius:9px;overflow:hidden}
+.seg-btn{flex:1;background:var(--s2);border:none;padding:9px 6px;font-family:inherit;font-weight:800;font-size:.76rem;color:var(--tm);cursor:pointer}
+.seg-btn.active{background:var(--p);color:#fff}
+.ef-selected{font-size:.8rem;font-weight:700;color:var(--tm);background:var(--s2);border:1px dashed var(--b);border-radius:9px;padding:9px 12px;margin-bottom:12px}
+.ef-selected b{color:var(--a)}
+.service-grid{display:flex;flex-wrap:wrap;gap:7px}
+.service-btn{background:var(--s2);border:1.5px solid var(--b);color:var(--t);font-family:inherit;font-weight:700;font-size:.74rem;padding:8px 13px;border-radius:20px;cursor:pointer;transition:all .15s}
+.service-btn:hover{border-color:var(--a)}
+.service-btn.active{background:var(--a);border-color:var(--a);color:#fff}
+
 @media(max-width:700px){
   .app-shell{flex-direction:column}
   .sidebar{width:100%;max-height:44vh}
@@ -206,10 +220,12 @@ const SHEETS = [
   ['income_dist','الإيرادات والتوزيع'],
   ['expense','المنصرف'],
   ['supply','توريد وإيصالات'],
+  ['receiptEntry','إدخال التوريد'],
   ['daftar','منصرف الدفاتر'],
   ['dept','المنصرف بالأقسام'],
   ['people','توزيع الأشخاص']
 ];
+const SERVICE_NAMES = SEED.supply_p4.map(r=>r[0]);
 const MONTHS_KEY = 'sohag_fund_months_v3';
 const OLD_PEOPLE_KEY = 'sohag_fund_people_distribution';
 const OLD_MONTHS_KEY_V2 = 'sohag_fund_months_v2';
@@ -219,6 +235,8 @@ let currentMonthId = null;
 let currentSheet = 'income_dist';
 let openMonths = new Set();
 let saveTimer = null;
+let receiptSelectedService = null;
+let receiptSelectedSession = 'صباحى';
 
 /* ---------------- Firebase / Firestore (مشاركة البيانات بين الأجهزة) ---------------- */
 const firebaseConfig = {
@@ -346,7 +364,9 @@ function seedFromOriginal(){
     supply: (p.id==='p4') ? SEED.supply_p4.map(r=>[r[0],r[1],r[2],r[3],r[4]]) : [],
     daftar: (p.id==='p4') ? SEED.daftar_p4.map(r=>[r[0],r[1],r[2]]) : [],
     deptExpense: (p.id==='p4') ? SEED.dept_p4.map(r=>[r[0],r[1]]) : [],
-    people: []
+    people: [],
+    receiptLog: [],
+    nextReceiptNo: 1
   }));
 }
 
@@ -394,7 +414,11 @@ async function init(){
   }
   // تأكيد أن الشهور الأصلية دائمًا مقفولة حتى لو كانت محفوظة من نسخة أقدم بدون علم "locked"
   const seedIds = new Set(SEED.periods.map(p=>p.id));
-  MONTHS.forEach(m=>{ if(seedIds.has(m.id)) m.locked = true; else if(m.locked===undefined) m.locked = false; });
+  MONTHS.forEach(m=>{
+    if(seedIds.has(m.id)) m.locked = true; else if(m.locked===undefined) m.locked = false;
+    if(!Array.isArray(m.receiptLog)) m.receiptLog = [];
+    if(!m.nextReceiptNo) m.nextReceiptNo = 1;
+  });
 
   if(MONTHS.length){
     currentMonthId = MONTHS[MONTHS.length-1].id;
@@ -473,7 +497,9 @@ function addMonth(){
     supply: templateEmptyRows(SEED.supply_p4, 4),
     daftar: templateEmptyRows(SEED.daftar_p4, 2),
     deptExpense: templateEmptyRows(SEED.dept_p4, 1),
-    people: []
+    people: [],
+    receiptLog: [],
+    nextReceiptNo: 1
   };
   MONTHS.push(m);
   openMonths.add(m.id);
@@ -662,6 +688,7 @@ function renderSheet(){
     case 'expense': html = renderSimpleSheet(m,'expense','المنصرف','بند المنصرف'); break;
     case 'dept': html = renderSimpleSheet(m,'deptExpense','المنصرف بالأقسام','القسم'); break;
     case 'supply': html = renderSupplySheet(m); break;
+    case 'receiptEntry': html = renderReceiptEntrySheet(m); break;
     case 'daftar': html = renderDaftarSheet(m); break;
     case 'people': html = renderPeopleSheet(m); break;
     default: html = '';
@@ -901,6 +928,167 @@ function recalcSupply(){
   setText('sf-er', fmtNum(sumCol(rows,4)));
   setText('sf-tr', fmtNum(sumCol(rows,3)+sumCol(rows,4)));
   setText('sf-am', fmtNum(supplyAfterMartyrs(rows)));
+}
+
+/* --- شاشة إدخال التوريد (إدخال سريع لكل إيصال على حدة) --- */
+function todayIso(){
+  const d = new Date();
+  const p = n => String(n).padStart(2,'0');
+  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`;
+}
+
+function incrementReceiptNo(val){
+  const s = String(val==null?'':val).trim();
+  const m = s.match(/(\d+)$/);
+  if(!m) return s; // لا يوجد جزء رقمى فى نهاية الرقم، يترك كما هو ليعدله المستخدم يدويًا
+  const numPart = m[1];
+  const prefix = s.slice(0, s.length - numPart.length);
+  const next = (parseInt(numPart,10)+1).toString().padStart(numPart.length,'0');
+  return prefix + next;
+}
+
+function renderReceiptEntrySheet(m){
+  receiptSelectedService = null; // إعادة ضبط الاختيار عند الدخول للشاشة أو تغيير الشهر
+
+  if(m.locked){
+    return `<div class="sheet-card"><h2>سجل قيود التوريد</h2>${receiptLogTableHtml(m)}</div>`;
+  }
+
+  const serviceButtons = SERVICE_NAMES.map((name,idx)=>
+    `<button class="service-btn" data-svc-idx="${idx}" onclick="selectServiceByIndex(${idx})">${escapeHtml(name)}</button>`
+  ).join('');
+
+  return `
+  <div class="sheet-card">
+    <h2>شاشة إدخال التوريد السريع</h2>
+    <div class="entry-form-grid">
+      <div class="ef-field">
+        <label>التاريخ</label>
+        <input type="date" id="re-date" class="cell-input" style="text-align:center;border:1px solid var(--b)" value="${todayIso()}">
+      </div>
+      <div class="ef-field">
+        <label>الفترة</label>
+        <div class="seg-toggle">
+          <button class="seg-btn active" id="seg-morning" onclick="setReceiptSession('صباحى')">☀ صباحى</button>
+          <button class="seg-btn" id="seg-evening" onclick="setReceiptSession('مسائى')">🌙 مسائى</button>
+        </div>
+      </div>
+      <div class="ef-field">
+        <label>رقم الإيصال</label>
+        <input type="text" id="re-receiptno" class="cell-input" style="text-align:center;border:1px solid var(--b);font-weight:900" value="${escapeHtml(m.nextReceiptNo)}">
+      </div>
+      <div class="ef-field">
+        <label>المبلغ (ج.م)</label>
+        <input type="number" step="0.01" id="re-amount" class="cell-input" style="text-align:center;border:1px solid var(--b)" placeholder="0.00">
+      </div>
+    </div>
+
+    <div class="ef-selected">البند المحدد حاليًا: <b id="re-selected-label">لم يتم الاختيار بعد</b></div>
+    <div class="service-grid" id="service-grid">${serviceButtons}</div>
+
+    <button class="btn btn-ok" style="margin-top:16px" onclick="saveReceiptEntry()">💾 حفظ القيد وإضافة إيصال جديد</button>
+  </div>
+
+  <div class="sheet-card">
+    <div class="sheet-card-head">
+      <h2>سجل القيود المُدخلة لهذا الشهر</h2>
+      <div class="head-btns no-print">
+        <button class="btn btn-o btn-sm" onclick="if(confirm('سيتم إعادة حساب أعمدة توريد وإيصالات لهذا الشهر بالكامل بناءً على هذا السجل، وسيتم استبدال أى قيم مدخلة يدويًا هناك. متابعة؟'))pushReceiptSummaryToSupply()">🔄 تحديث شيت توريد وإيصالات من هذا السجل</button>
+      </div>
+    </div>
+    <div id="receipt-log-wrap">${receiptLogTableHtml(m)}</div>
+  </div>`;
+}
+
+function receiptLogTableHtml(m){
+  const rows = m.receiptLog;
+  const rowsHtml = rows.map((r,i)=>`<tr>
+      <td>${escapeHtml(r[0])}</td>
+      <td class="num" style="font-weight:800">${escapeHtml(r[1])}</td>
+      <td>${escapeHtml(r[2])}</td>
+      <td>${escapeHtml(r[3])}</td>
+      <td class="num">${fmt(r[4])}</td>
+      <td class="no-print">${m.locked?'':`<button class="btn-er" onclick="removeReceiptEntry(${i})">✕</button>`}</td>
+    </tr>`).join('') || `<tr><td colspan="6" style="color:var(--tm);font-weight:600">لا توجد قيود مُدخلة بعد</td></tr>`;
+  const totalAmount = sumCol(rows,4);
+  return `<div style="overflow-x:auto">
+    <table class="tbl">
+      <thead><tr><th>التاريخ</th><th>رقم الإيصال</th><th>الفترة</th><th style="min-width:130px">البيان</th><th>المبلغ</th><th class="no-print" style="width:40px"></th></tr></thead>
+      <tbody id="receipt-log-body">${rowsHtml}</tbody>
+      <tfoot><tr><td colspan="3">عدد القيود: ${rows.length}</td><td>الإجمالى</td><td class="num" id="rl-total">${fmt(totalAmount)}</td><td class="no-print"></td></tr></tfoot>
+    </table>
+  </div>`;
+}
+
+function setReceiptSession(session){
+  receiptSelectedSession = session;
+  const mo = document.getElementById('seg-morning');
+  const ev = document.getElementById('seg-evening');
+  if(mo) mo.classList.toggle('active', session==='صباحى');
+  if(ev) ev.classList.toggle('active', session==='مسائى');
+}
+
+function selectServiceByIndex(idx){
+  receiptSelectedService = SERVICE_NAMES[idx];
+  document.querySelectorAll('.service-btn').forEach(b=>b.classList.remove('active'));
+  const btn = document.querySelector(`.service-btn[data-svc-idx="${idx}"]`);
+  if(btn) btn.classList.add('active');
+  setText('re-selected-label', receiptSelectedService);
+}
+
+function saveReceiptEntry(){
+  const m = getCurrentMonth(); if(!m || m.locked) return;
+  if(!receiptSelectedService){ alert('من فضلك اختر اسم التحليل أو الأشعة أو الخدمة أولاً من القائمة.'); return; }
+  const dateVal = document.getElementById('re-date').value || todayIso();
+  const receiptNoVal = document.getElementById('re-receiptno').value.trim();
+  const amountVal = parseFloat(document.getElementById('re-amount').value) || 0;
+  if(!receiptNoVal){ alert('من فضلك أدخل رقم الإيصال.'); return; }
+
+  m.receiptLog.push([dateVal, receiptNoVal, receiptSelectedSession, receiptSelectedService, amountVal]);
+  m.nextReceiptNo = incrementReceiptNo(receiptNoVal);
+
+  document.getElementById('re-receiptno').value = m.nextReceiptNo;
+  document.getElementById('re-amount').value = '';
+  receiptSelectedService = null;
+  document.querySelectorAll('.service-btn').forEach(b=>b.classList.remove('active'));
+  setText('re-selected-label', 'لم يتم الاختيار بعد');
+
+  const wrap = document.getElementById('receipt-log-wrap');
+  if(wrap) wrap.innerHTML = receiptLogTableHtml(m);
+
+  scheduleAutoSave();
+}
+
+function removeReceiptEntry(idx){
+  const m = getCurrentMonth(); if(!m || m.locked) return;
+  m.receiptLog.splice(idx,1);
+  const wrap = document.getElementById('receipt-log-wrap');
+  if(wrap) wrap.innerHTML = receiptLogTableHtml(m);
+  scheduleAutoSave();
+}
+
+/* تجميع سجل القيود إلى أعمدة توريد صباحى/مسائى وإيصالات صباحى/مسائى لكل بند، ودمجها فى شيت توريد وإيصالات */
+function pushReceiptSummaryToSupply(){
+  const m = getCurrentMonth(); if(!m || m.locked) return;
+  const summary = {}; // name -> {ms,es,mr,er}
+  m.receiptLog.forEach(r=>{
+    const session = r[2], name = r[3], amount = Number(r[4])||0;
+    if(!summary[name]) summary[name] = {ms:0,es:0,mr:0,er:0};
+    if(session==='صباحى'){ summary[name].ms += amount; summary[name].mr += 1; }
+    else { summary[name].es += amount; summary[name].er += 1; }
+  });
+  const names = Object.keys(summary);
+  const newSupply = m.supply.map(r=>[r[0], r[1], r[2], r[3], r[4]]);
+  names.forEach(name=>{
+    const s = summary[name];
+    const idx = newSupply.findIndex(r=>r[0]===name);
+    if(idx>-1){ newSupply[idx] = [name, s.ms, s.es, s.mr, s.er]; }
+    else { newSupply.push([name, s.ms, s.es, s.mr, s.er]); }
+  });
+  m.supply = newSupply;
+  renderSheet();
+  scheduleAutoSave();
+  alert('تم تحديث شيت "توريد وإيصالات" بناءً على سجل القيود.');
 }
 
 /* --- شيت منصرف الدفاتر --- */
