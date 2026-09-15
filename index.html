@@ -133,18 +133,44 @@ body{font-family:'Noto Kufi Arabic',sans-serif;background:var(--bg);color:var(--
 .save-toast.err{background:var(--er)}
 
 /* شاشة إدخال التوريد السريع */
-.entry-form-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:14px}
+.entry-form-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:10px}
 @media(max-width:900px){.entry-form-grid{grid-template-columns:repeat(2,1fr)}}
 .ef-field label{display:block;font-size:.68rem;font-weight:800;color:var(--tm);margin-bottom:5px}
 .seg-toggle{display:flex;border:1.5px solid var(--b);border-radius:9px;overflow:hidden}
 .seg-btn{flex:1;background:var(--s2);border:none;padding:9px 6px;font-family:inherit;font-weight:800;font-size:.76rem;color:var(--tm);cursor:pointer}
 .seg-btn.active{background:var(--p);color:#fff}
-.ef-selected{font-size:.8rem;font-weight:700;color:var(--tm);background:var(--s2);border:1px dashed var(--b);border-radius:9px;padding:9px 12px;margin-bottom:12px}
-.ef-selected b{color:var(--a)}
-.service-grid{display:flex;flex-wrap:wrap;gap:7px}
-.service-btn{background:var(--s2);border:1.5px solid var(--b);color:var(--t);font-family:inherit;font-weight:700;font-size:.74rem;padding:8px 13px;border-radius:20px;cursor:pointer;transition:all .15s}
+.ef-hint{font-size:.72rem;font-weight:700;color:var(--tm);margin-bottom:12px}
+.service-grid{display:flex;flex-wrap:wrap;gap:8px}
+.service-btn{background:var(--s2);border:1.5px solid var(--b);color:var(--t);font-family:inherit;font-weight:700;font-size:.74rem;padding:9px 15px;border-radius:20px;cursor:pointer;transition:all .15s}
 .service-btn:hover{border-color:var(--a)}
-.service-btn.active{background:var(--a);border-color:var(--a);color:#fff}
+.service-btn.active{background:var(--a);border-color:var(--a);color:#fff;transform:scale(1.1);font-weight:900;box-shadow:0 0 0 4px rgba(193,120,23,.22),0 6px 14px rgba(193,120,23,.35)}
+
+/* نافذة إدخال المبلغ المنبثقة */
+.entry-modal-backdrop{position:fixed;inset:0;background:rgba(8,20,18,.58);z-index:100;display:flex;align-items:center;justify-content:center;padding:20px}
+.entry-modal-box{background:#fff;border-radius:18px;padding:28px;max-width:420px;width:100%;box-shadow:0 14px 44px rgba(0,0,0,.32);text-align:center;animation:modalPop .16s ease-out}
+@keyframes modalPop{from{transform:scale(.92);opacity:0}to{transform:scale(1);opacity:1}}
+.entry-modal-title{font-size:1.2rem;font-weight:900;color:var(--p);margin-bottom:18px;padding-bottom:14px;border-bottom:2px solid var(--s2)}
+.modal-amount-input{width:100%;font-size:1.7rem;font-weight:900;text-align:center;padding:14px;border:2.5px solid var(--a);border-radius:12px;font-family:inherit;color:var(--p);margin-bottom:16px}
+.modal-amount-input:focus{outline:none;box-shadow:0 0 0 4px rgba(193,120,23,.2)}
+.entry-modal-actions{display:flex;gap:10px;justify-content:center}
+.entry-modal-actions .btn{flex:1;justify-content:center}
+.entry-modal-hint{font-size:.68rem;color:var(--tm);margin-top:16px;font-weight:700}
+
+/* نافذة إدارة الأسعار */
+.price-modal-box{max-width:480px;text-align:right}
+.price-list{max-height:52vh;overflow-y:auto;margin-bottom:16px}
+.price-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 4px;border-bottom:1px solid var(--s2)}
+.price-name{font-size:.78rem;font-weight:700;color:var(--t);flex:1}
+.price-input{width:110px;text-align:center;border:1px solid var(--b)}
+
+/* تبويب صباحى/مسائى لعرض السجل */
+.subtab-btns2{display:flex;gap:6px}
+.subtab-btn2{padding:7px 14px;border-radius:8px;border:1.5px solid var(--b);background:#fff;font-family:inherit;font-weight:700;font-size:.72rem;color:var(--tm);cursor:pointer}
+.subtab-btn2.active{background:var(--p);color:#fff;border-color:var(--p)}
+
+/* جدول السجل الواسع بنفس تنسيق الإكسل */
+.wide-log-tbl th, .wide-log-tbl td{padding:6px 7px;font-size:.68rem;white-space:nowrap}
+.wide-log-tbl th:first-child, .wide-log-tbl td:first-child{text-align:center}
 
 @media(max-width:700px){
   .app-shell{flex-direction:column}
@@ -227,6 +253,7 @@ const SHEETS = [
 ];
 const SERVICE_NAMES = SEED.supply_p4.map(r=>r[0]);
 const MONTHS_KEY = 'sohag_fund_months_v3';
+const SERVICE_PRICES_KEY = 'sohag_fund_service_prices';
 const OLD_PEOPLE_KEY = 'sohag_fund_people_distribution';
 const OLD_MONTHS_KEY_V2 = 'sohag_fund_months_v2';
 
@@ -235,8 +262,9 @@ let currentMonthId = null;
 let currentSheet = 'income_dist';
 let openMonths = new Set();
 let saveTimer = null;
-let receiptSelectedService = null;
 let receiptSelectedSession = 'صباحى';
+let activeModalServiceIdx = null;
+let SERVICE_PRICES = {};
 
 /* ---------------- Firebase / Firestore (مشاركة البيانات بين الأجهزة) ---------------- */
 const firebaseConfig = {
@@ -249,7 +277,7 @@ const firebaseConfig = {
   measurementId: "G-3TSFR7EVNX"
 };
 const FS_COLLECTION = 'sohag_fund';
-const FS_DOC = 'months_v3';
+const FS_DOCS = { [MONTHS_KEY]: 'months_v3', [SERVICE_PRICES_KEY]: 'service_prices' };
 let fsDb = null;
 try{
   if(window.firebase){
@@ -267,7 +295,7 @@ if(!fsDb) setCloudStatus('⚠ لا يوجد اتصال بالسحابة — يع
 /* استماع لحظى: أى تعديل يُحفظ من أى جهاز آخر يظهر هنا تلقائيًا (إلا أثناء الكتابة فى حقل) */
 function startRealtimeSync(){
   if(!fsDb) return;
-  fsDb.collection(FS_COLLECTION).doc(FS_DOC).onSnapshot(function(snap){
+  fsDb.collection(FS_COLLECTION).doc(FS_DOCS[MONTHS_KEY]).onSnapshot(function(snap){
     setCloudStatus('☁️ متصل — البيانات تُحفظ وتُشارك تلقائيًا بين كل الأجهزة', true);
     if(!snap.exists) return;
     const data = snap.data();
@@ -281,7 +309,13 @@ function startRealtimeSync(){
       if(JSON.stringify(parsed)===JSON.stringify(MONTHS)) return; // لا تغيير فعلى
       MONTHS = parsed;
       const seedIds = new Set(SEED.periods.map(p=>p.id));
-      MONTHS.forEach(m=>{ if(seedIds.has(m.id)) m.locked = true; else if(m.locked===undefined) m.locked = false; });
+      MONTHS.forEach(m=>{
+        if(seedIds.has(m.id)) m.locked = true; else if(m.locked===undefined) m.locked = false;
+        if(!Array.isArray(m.receiptLogMorning)) m.receiptLogMorning = [];
+        if(!Array.isArray(m.receiptLogEvening)) m.receiptLogEvening = [];
+        if(!m.nextReceiptNo) m.nextReceiptNo = 1;
+        if(m.lastGroup===undefined) m.lastGroup = '';
+      });
       if(!MONTHS.find(m=>m.id===currentMonthId)){
         currentMonthId = MONTHS.length ? MONTHS[MONTHS.length-1].id : null;
         if(currentMonthId) openMonths.add(currentMonthId);
@@ -297,21 +331,21 @@ function startRealtimeSync(){
 
 /* ---------------- تخزين عام: Firestore أولاً، ثم نسخة محلية احتياطية ---------------- */
 async function storageGet(key){
-  if(fsDb && key===MONTHS_KEY){
+  if(fsDb && FS_DOCS[key]){
     try{
-      const snap = await fsDb.collection(FS_COLLECTION).doc(FS_DOC).get();
+      const snap = await fsDb.collection(FS_COLLECTION).doc(FS_DOCS[key]).get();
       if(snap.exists){
         const data = snap.data();
         if(data && data.json){
-          setCloudStatus('☁️ متصل — البيانات تُحفظ وتُشارك تلقائيًا بين كل الأجهزة', true);
+          if(key===MONTHS_KEY) setCloudStatus('☁️ متصل — البيانات تُحفظ وتُشارك تلقائيًا بين كل الأجهزة', true);
           return data.json;
         }
       }
-      setCloudStatus('☁️ متصل بالسحابة — لا توجد بيانات محفوظة بعد', true);
+      if(key===MONTHS_KEY) setCloudStatus('☁️ متصل بالسحابة — لا توجد بيانات محفوظة بعد', true);
       return null;
     }catch(e){
       console.warn('Firestore get failed, using local storage instead:', e);
-      setCloudStatus('⚠ تعذر الاتصال بالسحابة — يعمل النظام محليًا على هذا الجهاز فقط', false);
+      if(key===MONTHS_KEY) setCloudStatus('⚠ تعذر الاتصال بالسحابة — يعمل النظام محليًا على هذا الجهاز فقط', false);
     }
   }
   try{
@@ -324,17 +358,17 @@ async function storageGet(key){
 }
 async function storageSet(key, value){
   let cloudOk = false;
-  if(fsDb && key===MONTHS_KEY){
+  if(fsDb && FS_DOCS[key]){
     try{
-      await fsDb.collection(FS_COLLECTION).doc(FS_DOC).set({
+      await fsDb.collection(FS_COLLECTION).doc(FS_DOCS[key]).set({
         json: value,
         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
       });
       cloudOk = true;
-      setCloudStatus('☁️ متصل — البيانات تُحفظ وتُشارك تلقائيًا بين كل الأجهزة', true);
+      if(key===MONTHS_KEY) setCloudStatus('☁️ متصل — البيانات تُحفظ وتُشارك تلقائيًا بين كل الأجهزة', true);
     }catch(e){
       console.warn('Firestore set failed, saving locally instead:', e);
-      setCloudStatus('⚠ تعذر الحفظ على السحابة — تم الحفظ محليًا على هذا الجهاز فقط', false);
+      if(key===MONTHS_KEY) setCloudStatus('⚠ تعذر الحفظ على السحابة — تم الحفظ محليًا على هذا الجهاز فقط', false);
     }
   }
   let localOk = false;
@@ -365,8 +399,10 @@ function seedFromOriginal(){
     daftar: (p.id==='p4') ? SEED.daftar_p4.map(r=>[r[0],r[1],r[2]]) : [],
     deptExpense: (p.id==='p4') ? SEED.dept_p4.map(r=>[r[0],r[1]]) : [],
     people: [],
-    receiptLog: [],
-    nextReceiptNo: 1
+    receiptLogMorning: [],
+    receiptLogEvening: [],
+    nextReceiptNo: 1,
+    lastGroup: ''
   }));
 }
 
@@ -416,14 +452,30 @@ async function init(){
   const seedIds = new Set(SEED.periods.map(p=>p.id));
   MONTHS.forEach(m=>{
     if(seedIds.has(m.id)) m.locked = true; else if(m.locked===undefined) m.locked = false;
-    if(!Array.isArray(m.receiptLog)) m.receiptLog = [];
+    if(!Array.isArray(m.receiptLogMorning)) m.receiptLogMorning = [];
+    if(!Array.isArray(m.receiptLogEvening)) m.receiptLogEvening = [];
+    if(Array.isArray(m.receiptLog) && m.receiptLog.length){
+      m.receiptLog.forEach(r=>{
+        const date = r[0]||'', no = r[1]||'', session = r[2], name = r[3], amount = Number(r[4])||0;
+        const idx = SERVICE_NAMES.indexOf(name);
+        const row = [date, no, '', ...Array(SERVICE_NAMES.length).fill(0)];
+        if(idx>-1) row[3+idx] = amount;
+        if(session==='مسائى') m.receiptLogEvening.push(row); else m.receiptLogMorning.push(row);
+      });
+    }
+    delete m.receiptLog;
     if(!m.nextReceiptNo) m.nextReceiptNo = 1;
+    if(m.lastGroup===undefined) m.lastGroup = '';
   });
 
   if(MONTHS.length){
     currentMonthId = MONTHS[MONTHS.length-1].id;
     openMonths.add(currentMonthId);
   }
+  try{
+    const priceRaw = await storageGet(SERVICE_PRICES_KEY);
+    if(priceRaw) SERVICE_PRICES = JSON.parse(priceRaw) || {};
+  }catch(e){ SERVICE_PRICES = {}; }
   renderSidebar();
   renderSheet();
   saveAll(false);
@@ -498,8 +550,10 @@ function addMonth(){
     daftar: templateEmptyRows(SEED.daftar_p4, 2),
     deptExpense: templateEmptyRows(SEED.dept_p4, 1),
     people: [],
-    receiptLog: [],
-    nextReceiptNo: 1
+    receiptLogMorning: [],
+    receiptLogEvening: [],
+    nextReceiptNo: 1,
+    lastGroup: ''
   };
   MONTHS.push(m);
   openMonths.add(m.id);
@@ -948,19 +1002,24 @@ function incrementReceiptNo(val){
 }
 
 function renderReceiptEntrySheet(m){
-  receiptSelectedService = null; // إعادة ضبط الاختيار عند الدخول للشاشة أو تغيير الشهر
+  activeModalServiceIdx = null; // إعادة ضبط عند الدخول للشاشة أو تغيير الشهر
 
   if(m.locked){
-    return `<div class="sheet-card"><h2>سجل قيود التوريد</h2>${receiptLogTableHtml(m)}</div>`;
+    return `
+      <div class="sheet-card"><h2>سجل الصباحية (${escapeHtml(m.label)})</h2>${wideLogTableHtml(m.receiptLogMorning, null)}</div>
+      <div class="sheet-card"><h2>سجل المسائية (${escapeHtml(m.label)})</h2>${wideLogTableHtml(m.receiptLogEvening, null)}</div>`;
   }
 
   const serviceButtons = SERVICE_NAMES.map((name,idx)=>
-    `<button class="service-btn" data-svc-idx="${idx}" onclick="selectServiceByIndex(${idx})">${escapeHtml(name)}</button>`
+    `<button class="service-btn" data-svc-idx="${idx}" onclick="onServiceClick(${idx})" ondblclick="onServiceDblClick(${idx})">${escapeHtml(name)}</button>`
   ).join('');
 
   return `
   <div class="sheet-card">
-    <h2>شاشة إدخال التوريد السريع</h2>
+    <div class="sheet-card-head">
+      <h2>شاشة إدخال التوريد السريع</h2>
+      <button class="btn btn-o btn-sm no-print" onclick="openPriceModal()">⚙ أسعار الخدمات</button>
+    </div>
     <div class="entry-form-grid">
       <div class="ef-field">
         <label>التاريخ</label>
@@ -978,46 +1037,85 @@ function renderReceiptEntrySheet(m){
         <input type="text" id="re-receiptno" class="cell-input" style="text-align:center;border:1px solid var(--b);font-weight:900" value="${escapeHtml(m.nextReceiptNo)}">
       </div>
       <div class="ef-field">
-        <label>المبلغ (ج.م)</label>
-        <input type="number" step="0.01" id="re-amount" class="cell-input" style="text-align:center;border:1px solid var(--b)" placeholder="0.00">
+        <label>المجموعة</label>
+        <input type="text" id="re-group" class="cell-input" style="text-align:center;border:1px solid var(--b)" value="${escapeHtml(m.lastGroup||'')}">
       </div>
     </div>
 
-    <div class="ef-selected">البند المحدد حاليًا: <b id="re-selected-label">لم يتم الاختيار بعد</b></div>
+    <div class="ef-hint">👆 اضغط على اسم البند لفتح شاشة إدخال المبلغ، واضغط عليه مرة ثانية (أو مرتين متتاليتين) لحفظ القيد مباشرة.</div>
     <div class="service-grid" id="service-grid">${serviceButtons}</div>
-
-    <button class="btn btn-ok" style="margin-top:16px" onclick="saveReceiptEntry()">💾 حفظ القيد وإضافة إيصال جديد</button>
   </div>
 
   <div class="sheet-card">
     <div class="sheet-card-head">
-      <h2>سجل القيود المُدخلة لهذا الشهر</h2>
-      <div class="head-btns no-print">
-        <button class="btn btn-o btn-sm" onclick="if(confirm('سيتم إعادة حساب أعمدة توريد وإيصالات لهذا الشهر بالكامل بناءً على هذا السجل، وسيتم استبدال أى قيم مدخلة يدويًا هناك. متابعة؟'))pushReceiptSummaryToSupply()">🔄 تحديث شيت توريد وإيصالات من هذا السجل</button>
+      <h2>السجل — بنفس تنسيق ملفات الإكسل (التاريخ / رقم الإيصال / المجموعة / كل بند بعموده)</h2>
+      <div class="subtab-btns2 no-print">
+        <button class="subtab-btn2 active" id="logtab-morning" onclick="showLogTab('morning')">سجل الصباحية</button>
+        <button class="subtab-btn2" id="logtab-evening" onclick="showLogTab('evening')">سجل المسائية</button>
       </div>
     </div>
-    <div id="receipt-log-wrap">${receiptLogTableHtml(m)}</div>
+    <div class="head-btns no-print" style="margin-bottom:12px">
+      <button class="btn btn-o btn-sm" onclick="if(confirm('سيتم إعادة حساب أعمدة توريد وإيصالات لهذا الشهر بالكامل من السجلين (الصباحى والمسائى)، وسيتم استبدال أى قيم مدخلة يدويًا هناك. متابعة؟'))pushReceiptSummaryToSupply()">🔄 تحديث شيت توريد وإيصالات من هذا السجل</button>
+    </div>
+    <div id="log-morning-wrap">${wideLogTableHtml(m.receiptLogMorning, 'morning')}</div>
+    <div id="log-evening-wrap" style="display:none">${wideLogTableHtml(m.receiptLogEvening, 'evening')}</div>
+  </div>
+
+  <div class="entry-modal-backdrop no-print" id="entry-modal" style="display:none" onclick="if(event.target===this)closeEntryModal()">
+    <div class="entry-modal-box">
+      <div class="entry-modal-title" id="modal-service-name">—</div>
+      <label style="display:block;font-size:.72rem;font-weight:800;color:var(--tm);margin-bottom:8px">المبلغ (ج.م)</label>
+      <input type="number" id="modal-amount" class="modal-amount-input" step="0.01" onkeydown="if(event.key==='Enter'){confirmSaveFromModal();} if(event.key==='Escape'){closeEntryModal();}">
+      <div class="entry-modal-actions">
+        <button class="btn btn-ok" onclick="confirmSaveFromModal()">💾 حفظ</button>
+        <button class="btn btn-o" onclick="closeEntryModal()">إلغاء</button>
+      </div>
+      <div class="entry-modal-hint">💡 أو اضغط على نفس اسم البند فى الشاشة الرئيسية مرة أخرى للحفظ السريع</div>
+    </div>
+  </div>
+
+  <div class="entry-modal-backdrop no-print" id="price-modal" style="display:none" onclick="if(event.target===this)closePriceModal()">
+    <div class="entry-modal-box price-modal-box">
+      <div class="entry-modal-title">⚙ أسعار الأشعة والتحاليل والخدمات</div>
+      <div class="price-list" id="price-list"></div>
+      <div class="entry-modal-actions">
+        <button class="btn btn-ok" onclick="savePrices()">💾 حفظ الأسعار</button>
+        <button class="btn btn-o" onclick="closePriceModal()">إغلاق</button>
+      </div>
+    </div>
   </div>`;
 }
 
-function receiptLogTableHtml(m){
-  const rows = m.receiptLog;
-  const rowsHtml = rows.map((r,i)=>`<tr>
-      <td>${escapeHtml(r[0])}</td>
-      <td class="num" style="font-weight:800">${escapeHtml(r[1])}</td>
-      <td>${escapeHtml(r[2])}</td>
-      <td>${escapeHtml(r[3])}</td>
-      <td class="num">${fmt(r[4])}</td>
-      <td class="no-print">${m.locked?'':`<button class="btn-er" onclick="removeReceiptEntry(${i})">✕</button>`}</td>
-    </tr>`).join('') || `<tr><td colspan="6" style="color:var(--tm);font-weight:600">لا توجد قيود مُدخلة بعد</td></tr>`;
-  const totalAmount = sumCol(rows,4);
-  return `<div style="overflow-x:auto">
-    <table class="tbl">
-      <thead><tr><th>التاريخ</th><th>رقم الإيصال</th><th>الفترة</th><th style="min-width:130px">البيان</th><th>المبلغ</th><th class="no-print" style="width:40px"></th></tr></thead>
-      <tbody id="receipt-log-body">${rowsHtml}</tbody>
-      <tfoot><tr><td colspan="3">عدد القيود: ${rows.length}</td><td>الإجمالى</td><td class="num" id="rl-total">${fmt(totalAmount)}</td><td class="no-print"></td></tr></tfoot>
-    </table>
-  </div>`;
+/* --- جدول السجل الواسع (بنفس أعمدة ملف الإكسل: تاريخ | رقم إيصال | مجموعة | كل بند بعموده) --- */
+function wideLogTableHtml(rows, which){
+  rows = rows || [];
+  const showDelete = !!which;
+  const headerCols = ['التاريخ','رقم الإيصال','المجموعة', ...SERVICE_NAMES];
+  const theadHtml = headerCols.map(h=>`<th>${escapeHtml(h)}</th>`).join('') + (showDelete?'<th class="no-print" style="width:34px"></th>':'');
+  const bodyHtml = rows.map((r,i)=>{
+    const fixedCells = [0,1,2].map(ci=>`<td>${escapeHtml(r[ci])}</td>`).join('');
+    const svcCells = SERVICE_NAMES.map((_,ci)=>{
+      const v = Number(r[3+ci])||0;
+      return `<td class="num">${v?fmtNum(v):''}</td>`;
+    }).join('');
+    const delCell = showDelete ? `<td class="no-print"><button class="btn-er" onclick="removeWideLogRow('${which}',${i})">✕</button></td>` : '';
+    return `<tr>${fixedCells}${svcCells}${delCell}</tr>`;
+  }).join('') || `<tr><td colspan="${headerCols.length+(showDelete?1:0)}" style="color:var(--tm);font-weight:600">لا توجد قيود بعد</td></tr>`;
+  const totalsHtml = `<td colspan="3">الإجمالى (${rows.length} إيصال)</td>` +
+    SERVICE_NAMES.map((_,ci)=>{ const t = sumCol(rows,3+ci); return `<td class="num" style="font-weight:900">${t?fmtNum(t):'0'}</td>`; }).join('') +
+    (showDelete?'<td class="no-print"></td>':'');
+  return `<div style="overflow-x:auto"><table class="tbl wide-log-tbl">
+    <thead><tr>${theadHtml}</tr></thead>
+    <tbody>${bodyHtml}</tbody>
+    <tfoot><tr>${totalsHtml}</tr></tfoot>
+  </table></div>`;
+}
+
+function showLogTab(which){
+  document.getElementById('logtab-morning').classList.toggle('active', which==='morning');
+  document.getElementById('logtab-evening').classList.toggle('active', which==='evening');
+  document.getElementById('log-morning-wrap').style.display = which==='morning' ? '' : 'none';
+  document.getElementById('log-evening-wrap').style.display = which==='evening' ? '' : 'none';
 }
 
 function setReceiptSession(session){
@@ -1028,62 +1126,119 @@ function setReceiptSession(session){
   if(ev) ev.classList.toggle('active', session==='مسائى');
 }
 
-function selectServiceByIndex(idx){
-  receiptSelectedService = SERVICE_NAMES[idx];
+/* --- نافذة إدخال المبلغ: ضغطة تفتح الشاشة المميزة، وضغطة ثانية (أو نقر مزدوج) تحفظ --- */
+function onServiceClick(idx){
+  if(activeModalServiceIdx === idx){
+    confirmSaveFromModal();
+    return;
+  }
+  openEntryModal(idx);
+}
+function onServiceDblClick(idx){
+  if(activeModalServiceIdx !== idx) openEntryModal(idx);
+  confirmSaveFromModal();
+}
+function openEntryModal(idx){
+  activeModalServiceIdx = idx;
+  const name = SERVICE_NAMES[idx];
   document.querySelectorAll('.service-btn').forEach(b=>b.classList.remove('active'));
   const btn = document.querySelector(`.service-btn[data-svc-idx="${idx}"]`);
   if(btn) btn.classList.add('active');
-  setText('re-selected-label', receiptSelectedService);
+  setText('modal-service-name', name);
+  const modal = document.getElementById('entry-modal');
+  const amountInput = document.getElementById('modal-amount');
+  const price = SERVICE_PRICES[name];
+  amountInput.value = (price!==undefined && price!==null && price!=='') ? price : '';
+  modal.style.display = 'flex';
+  setTimeout(()=>{ amountInput.focus(); amountInput.select(); }, 30);
 }
-
-function saveReceiptEntry(){
+function closeEntryModal(){
+  activeModalServiceIdx = null;
+  document.querySelectorAll('.service-btn').forEach(b=>b.classList.remove('active'));
+  const modal = document.getElementById('entry-modal');
+  if(modal) modal.style.display = 'none';
+}
+function confirmSaveFromModal(){
   const m = getCurrentMonth(); if(!m || m.locked) return;
-  if(!receiptSelectedService){ alert('من فضلك اختر اسم التحليل أو الأشعة أو الخدمة أولاً من القائمة.'); return; }
+  if(activeModalServiceIdx===null) return;
+  const amountVal = parseFloat(document.getElementById('modal-amount').value) || 0;
   const dateVal = document.getElementById('re-date').value || todayIso();
   const receiptNoVal = document.getElementById('re-receiptno').value.trim();
-  const amountVal = parseFloat(document.getElementById('re-amount').value) || 0;
+  const groupVal = document.getElementById('re-group').value.trim();
   if(!receiptNoVal){ alert('من فضلك أدخل رقم الإيصال.'); return; }
 
-  m.receiptLog.push([dateVal, receiptNoVal, receiptSelectedSession, receiptSelectedService, amountVal]);
+  const row = [dateVal, receiptNoVal, groupVal, ...Array(SERVICE_NAMES.length).fill(0)];
+  row[3+activeModalServiceIdx] = amountVal;
+
+  const which = receiptSelectedSession==='مسائى' ? 'evening' : 'morning';
+  if(which==='evening'){ m.receiptLogEvening.push(row); } else { m.receiptLogMorning.push(row); }
+
   m.nextReceiptNo = incrementReceiptNo(receiptNoVal);
-
+  m.lastGroup = groupVal;
   document.getElementById('re-receiptno').value = m.nextReceiptNo;
-  document.getElementById('re-amount').value = '';
-  receiptSelectedService = null;
-  document.querySelectorAll('.service-btn').forEach(b=>b.classList.remove('active'));
-  setText('re-selected-label', 'لم يتم الاختيار بعد');
 
-  const wrap = document.getElementById('receipt-log-wrap');
-  if(wrap) wrap.innerHTML = receiptLogTableHtml(m);
+  closeEntryModal();
+
+  const wrap = document.getElementById(which==='morning'?'log-morning-wrap':'log-evening-wrap');
+  if(wrap) wrap.innerHTML = wideLogTableHtml(which==='morning'?m.receiptLogMorning:m.receiptLogEvening, which);
 
   scheduleAutoSave();
 }
 
-function removeReceiptEntry(idx){
+function removeWideLogRow(which, idx){
   const m = getCurrentMonth(); if(!m || m.locked) return;
-  m.receiptLog.splice(idx,1);
-  const wrap = document.getElementById('receipt-log-wrap');
-  if(wrap) wrap.innerHTML = receiptLogTableHtml(m);
+  const arr = which==='morning' ? m.receiptLogMorning : m.receiptLogEvening;
+  arr.splice(idx,1);
+  const wrap = document.getElementById(which==='morning'?'log-morning-wrap':'log-evening-wrap');
+  if(wrap) wrap.innerHTML = wideLogTableHtml(arr, which);
   scheduleAutoSave();
 }
 
-/* تجميع سجل القيود إلى أعمدة توريد صباحى/مسائى وإيصالات صباحى/مسائى لكل بند، ودمجها فى شيت توريد وإيصالات */
+/* --- إدارة أسعار الخدمات (قائمة عامة مشتركة بين كل الشهور والأجهزة) --- */
+async function openPriceModal(){
+  try{
+    const raw = await storageGet(SERVICE_PRICES_KEY);
+    if(raw) SERVICE_PRICES = JSON.parse(raw) || {};
+  }catch(e){}
+  const list = document.getElementById('price-list');
+  list.innerHTML = SERVICE_NAMES.map((name,idx)=>`
+    <div class="price-row">
+      <span class="price-name">${escapeHtml(name)}</span>
+      <input type="number" step="0.01" class="cell-input price-input" data-svc="${idx}" value="${SERVICE_PRICES[name]!==undefined?SERVICE_PRICES[name]:''}" placeholder="0.00">
+    </div>`).join('');
+  document.getElementById('price-modal').style.display = 'flex';
+}
+function closePriceModal(){
+  const modal = document.getElementById('price-modal');
+  if(modal) modal.style.display = 'none';
+}
+async function savePrices(){
+  document.querySelectorAll('#price-list .price-input').forEach(inp=>{
+    const idx = Number(inp.dataset.svc);
+    const name = SERVICE_NAMES[idx];
+    const v = parseFloat(inp.value);
+    if(!isNaN(v) && v>0) SERVICE_PRICES[name] = v; else delete SERVICE_PRICES[name];
+  });
+  await storageSet(SERVICE_PRICES_KEY, JSON.stringify(SERVICE_PRICES));
+  closePriceModal();
+  const toast = document.getElementById('save-toast');
+  toast.textContent = '✔ تم حفظ الأسعار';
+  toast.classList.remove('err'); toast.classList.add('show');
+  clearTimeout(toast._t); toast._t = setTimeout(()=>toast.classList.remove('show'), 2200);
+}
+
+/* تجميع السجلين (الصباحى والمسائى) إلى أعمدة توريد/إيصالات لكل بند، ودمجها فى شيت توريد وإيصالات */
 function pushReceiptSummaryToSupply(){
   const m = getCurrentMonth(); if(!m || m.locked) return;
-  const summary = {}; // name -> {ms,es,mr,er}
-  m.receiptLog.forEach(r=>{
-    const session = r[2], name = r[3], amount = Number(r[4])||0;
-    if(!summary[name]) summary[name] = {ms:0,es:0,mr:0,er:0};
-    if(session==='صباحى'){ summary[name].ms += amount; summary[name].mr += 1; }
-    else { summary[name].es += amount; summary[name].er += 1; }
-  });
-  const names = Object.keys(summary);
   const newSupply = m.supply.map(r=>[r[0], r[1], r[2], r[3], r[4]]);
-  names.forEach(name=>{
-    const s = summary[name];
-    const idx = newSupply.findIndex(r=>r[0]===name);
-    if(idx>-1){ newSupply[idx] = [name, s.ms, s.es, s.mr, s.er]; }
-    else { newSupply.push([name, s.ms, s.es, s.mr, s.er]); }
+  SERVICE_NAMES.forEach((name,idx)=>{
+    const morningAmt = sumCol(m.receiptLogMorning, 3+idx);
+    const eveningAmt = sumCol(m.receiptLogEvening, 3+idx);
+    const morningCount = m.receiptLogMorning.filter(r=>(Number(r[3+idx])||0)>0).length;
+    const eveningCount = m.receiptLogEvening.filter(r=>(Number(r[3+idx])||0)>0).length;
+    const rowIdx = newSupply.findIndex(r=>r[0]===name);
+    if(rowIdx>-1){ newSupply[rowIdx] = [name, morningAmt, eveningAmt, morningCount, eveningCount]; }
+    else { newSupply.push([name, morningAmt, eveningAmt, morningCount, eveningCount]); }
   });
   m.supply = newSupply;
   renderSheet();
