@@ -172,6 +172,28 @@ body{font-family:'Noto Kufi Arabic',sans-serif;background:var(--bg);color:var(--
 .wide-log-tbl th, .wide-log-tbl td{padding:6px 7px;font-size:.68rem;white-space:nowrap}
 .wide-log-tbl th:first-child, .wide-log-tbl td:first-child{text-align:center}
 
+/* لوحة الدفتر الحالى */
+.booklet-panel{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;background:var(--s2);border:1.5px dashed var(--b);border-radius:10px;padding:10px 14px;margin-bottom:14px}
+.booklet-info{font-size:.78rem;font-weight:700;color:var(--p)}
+.booklet-info.booklet-warn{color:var(--er)}
+.service-grid.disabled-grid{opacity:.42;pointer-events:none}
+
+/* ملخص التوريد التلقائى */
+.receipt-summary-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+@media(max-width:1100px){.receipt-summary-grid{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:640px){.receipt-summary-grid{grid-template-columns:repeat(2,1fr)}}
+.rs-card{background:var(--s2);border:1px solid var(--b);border-radius:10px;padding:12px;text-align:center}
+.rs-lbl{font-size:.64rem;font-weight:700;color:var(--tm);margin-bottom:6px;min-height:28px}
+.rs-val{font-size:.92rem;font-weight:900;color:var(--p)}
+
+/* زر تحميل باقى الصفوف */
+.load-more-bar{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;background:var(--s2);border:1px dashed var(--b);border-radius:9px;padding:9px 12px;margin-bottom:10px;font-size:.72rem;font-weight:700;color:var(--tm)}
+
+/* إلغاء أسهم الزيادة/النقصان على كل حقول الأرقام فى النظام بالكامل */
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+input[type=number]{-moz-appearance:textfield}
+
 @media(max-width:700px){
   .app-shell{flex-direction:column}
   .sidebar{width:100%;max-height:44vh}
@@ -264,6 +286,8 @@ let openMonths = new Set();
 let saveTimer = null;
 let receiptSelectedSession = 'صباحى';
 let activeModalServiceIdx = null;
+let logShowAll = { morning:false, evening:false };
+const LOG_PAGE_SIZE = 500;
 let SERVICE_PRICES = {};
 
 /* ---------------- Firebase / Firestore (مشاركة البيانات بين الأجهزة) ---------------- */
@@ -313,7 +337,7 @@ function startRealtimeSync(){
         if(seedIds.has(m.id)) m.locked = true; else if(m.locked===undefined) m.locked = false;
         if(!Array.isArray(m.receiptLogMorning)) m.receiptLogMorning = [];
         if(!Array.isArray(m.receiptLogEvening)) m.receiptLogEvening = [];
-        if(!m.nextReceiptNo) m.nextReceiptNo = 1;
+        if(!m.booklet) m.booklet = { morning:{start:null,end:null,current:null}, evening:{start:null,end:null,current:null} };
         if(m.lastGroup===undefined) m.lastGroup = '';
       });
       if(!MONTHS.find(m=>m.id===currentMonthId)){
@@ -401,8 +425,8 @@ function seedFromOriginal(){
     people: [],
     receiptLogMorning: [],
     receiptLogEvening: [],
-    nextReceiptNo: 1,
-    lastGroup: ''
+    lastGroup: '',
+    booklet: { morning:{start:null,end:null,current:null}, evening:{start:null,end:null,current:null} }
   }));
 }
 
@@ -450,6 +474,7 @@ async function init(){
   }
   // تأكيد أن الشهور الأصلية دائمًا مقفولة حتى لو كانت محفوظة من نسخة أقدم بدون علم "locked"
   const seedIds = new Set(SEED.periods.map(p=>p.id));
+  const oldRowLen = 3 + SERVICE_NAMES.length; // تنسيق قديم: تاريخ/رقم/مجموعة + بنود (بدون عمود الدفتر)
   MONTHS.forEach(m=>{
     if(seedIds.has(m.id)) m.locked = true; else if(m.locked===undefined) m.locked = false;
     if(!Array.isArray(m.receiptLogMorning)) m.receiptLogMorning = [];
@@ -464,8 +489,13 @@ async function init(){
       });
     }
     delete m.receiptLog;
-    if(!m.nextReceiptNo) m.nextReceiptNo = 1;
+    // ترقية أى صفوف بالتنسيق السابق (بدون عمود "الدفتر") إلى التنسيق الحالى بإدراج عمود فارغ
+    ['receiptLogMorning','receiptLogEvening'].forEach(key=>{
+      m[key] = m[key].map(r => (r.length===oldRowLen) ? [r[0], r[1], r[2], '', ...r.slice(3)] : r);
+    });
+    if(!m.booklet) m.booklet = { morning:{start:null,end:null,current:null}, evening:{start:null,end:null,current:null} };
     if(m.lastGroup===undefined) m.lastGroup = '';
+    delete m.nextReceiptNo; // استُبدل بنظام الدفاتر لكل فترة
   });
 
   if(MONTHS.length){
@@ -552,8 +582,8 @@ function addMonth(){
     people: [],
     receiptLogMorning: [],
     receiptLogEvening: [],
-    nextReceiptNo: 1,
-    lastGroup: ''
+    lastGroup: '',
+    booklet: { morning:{start:null,end:null,current:null}, evening:{start:null,end:null,current:null} }
   };
   MONTHS.push(m);
   openMonths.add(m.id);
@@ -749,6 +779,10 @@ function renderSheet(){
   }
   container.innerHTML = lockBanner + html;
   bindLiveInputs();
+  if(currentSheet==='receiptEntry' && !m.locked){
+    refreshEntryAvailability();
+    updateReceiptSummaryPanel();
+  }
 }
 
 /* --- خلية إدخال أو نص ثابت (حسب حالة القفل) --- */
@@ -1001,8 +1035,71 @@ function incrementReceiptNo(val){
   return prefix + next;
 }
 
+function sessionKey(){ return receiptSelectedSession==='مسائى' ? 'evening' : 'morning'; }
+function numOf(v){ return parseInt(String(v==null?'':v).replace(/\D/g,''),10) || 0; }
+
+function bookletStatus(m, sk){
+  const bk = m.booklet && m.booklet[sk];
+  if(!bk || !bk.start || !bk.end) return {ok:false, reason:'none'};
+  if(numOf(bk.current) > numOf(bk.end)) return {ok:false, reason:'finished'};
+  return {ok:true};
+}
+
+function refreshEntryAvailability(){
+  const m = getCurrentMonth(); if(!m) return;
+  const sk = sessionKey();
+  const bk = m.booklet[sk];
+  const status = bookletStatus(m, sk);
+  const infoEl = document.getElementById('booklet-info');
+  const gridEl = document.getElementById('service-grid');
+  const receiptInput = document.getElementById('re-receiptno');
+  if(!infoEl) return;
+  if(status.ok){
+    infoEl.innerHTML = `📖 الدفتر الحالى (${receiptSelectedSession}): من <b>${escapeHtml(bk.start)}</b> إلى <b>${escapeHtml(bk.end)}</b> — الرقم التالى: <b>${escapeHtml(bk.current)}</b>`;
+    infoEl.classList.remove('booklet-warn');
+    if(gridEl) gridEl.classList.remove('disabled-grid');
+    if(receiptInput){ receiptInput.value = bk.current; receiptInput.disabled = false; }
+  } else if(status.reason==='finished'){
+    infoEl.innerHTML = `⚠ انتهى هذا الدفتر (${escapeHtml(bk.start)}–${escapeHtml(bk.end)}). عرّف دفترًا جديدًا للمتابعة.`;
+    infoEl.classList.add('booklet-warn');
+    if(gridEl) gridEl.classList.add('disabled-grid');
+    if(receiptInput){ receiptInput.disabled = true; }
+  } else {
+    infoEl.innerHTML = `لم يتم تعريف دفتر لهذه الفترة (${receiptSelectedSession}) بعد. اضغط "📖 تعريف دفتر جديد" للبدء.`;
+    infoEl.classList.add('booklet-warn');
+    if(gridEl) gridEl.classList.add('disabled-grid');
+    if(receiptInput){ receiptInput.value=''; receiptInput.disabled = true; }
+  }
+}
+
+function openBookletModal(){
+  const m = getCurrentMonth(); if(!m || m.locked) return;
+  setText('booklet-modal-session', receiptSelectedSession);
+  document.getElementById('booklet-start-input').value='';
+  document.getElementById('booklet-end-input').value='';
+  document.getElementById('booklet-modal').style.display='flex';
+  setTimeout(()=>{ const el=document.getElementById('booklet-start-input'); if(el) el.focus(); }, 30);
+}
+function closeBookletModal(){
+  const modal = document.getElementById('booklet-modal');
+  if(modal) modal.style.display='none';
+}
+function startNewBooklet(){
+  const m = getCurrentMonth(); if(!m || m.locked) return;
+  const start = document.getElementById('booklet-start-input').value.trim();
+  const end = document.getElementById('booklet-end-input').value.trim();
+  if(!start || !end){ alert('من فضلك أدخل رقمى بداية ونهاية الدفتر.'); return; }
+  if(numOf(end) < numOf(start)){ alert('رقم نهاية الدفتر يجب أن يكون أكبر من أو يساوى رقم البداية.'); return; }
+  const sk = sessionKey();
+  m.booklet[sk] = { start, end, current: start };
+  closeBookletModal();
+  refreshEntryAvailability();
+  scheduleAutoSave();
+}
+
 function renderReceiptEntrySheet(m){
   activeModalServiceIdx = null; // إعادة ضبط عند الدخول للشاشة أو تغيير الشهر
+  logShowAll = { morning:false, evening:false };
 
   if(m.locked){
     return `
@@ -1034,7 +1131,7 @@ function renderReceiptEntrySheet(m){
       </div>
       <div class="ef-field">
         <label>رقم الإيصال</label>
-        <input type="text" id="re-receiptno" class="cell-input" style="text-align:center;border:1px solid var(--b);font-weight:900" value="${escapeHtml(m.nextReceiptNo)}">
+        <input type="text" id="re-receiptno" class="cell-input" style="text-align:center;border:1px solid var(--b);font-weight:900" value="">
       </div>
       <div class="ef-field">
         <label>المجموعة</label>
@@ -1042,20 +1139,27 @@ function renderReceiptEntrySheet(m){
       </div>
     </div>
 
+    <div class="booklet-panel">
+      <div class="booklet-info" id="booklet-info">—</div>
+      <button class="btn btn-p btn-sm no-print" onclick="openBookletModal()">📖 تعريف دفتر جديد</button>
+    </div>
+
     <div class="ef-hint">👆 اضغط على اسم البند لفتح شاشة إدخال المبلغ، واضغط عليه مرة ثانية (أو مرتين متتاليتين) لحفظ القيد مباشرة.</div>
     <div class="service-grid" id="service-grid">${serviceButtons}</div>
   </div>
 
   <div class="sheet-card">
+    <h2>ملخص التوريد والإيصالات لهذا الشهر (يتحدث تلقائيًا)</h2>
+    <div class="receipt-summary-grid" id="receipt-summary-grid"></div>
+  </div>
+
+  <div class="sheet-card">
     <div class="sheet-card-head">
-      <h2>السجل — بنفس تنسيق ملفات الإكسل (التاريخ / رقم الإيصال / المجموعة / كل بند بعموده)</h2>
+      <h2>السجل — بنفس تنسيق ملفات الإكسل (التاريخ / رقم الإيصال / المجموعة / الدفتر / كل بند بعموده)</h2>
       <div class="subtab-btns2 no-print">
         <button class="subtab-btn2 active" id="logtab-morning" onclick="showLogTab('morning')">سجل الصباحية</button>
         <button class="subtab-btn2" id="logtab-evening" onclick="showLogTab('evening')">سجل المسائية</button>
       </div>
-    </div>
-    <div class="head-btns no-print" style="margin-bottom:12px">
-      <button class="btn btn-o btn-sm" onclick="if(confirm('سيتم إعادة حساب أعمدة توريد وإيصالات لهذا الشهر بالكامل من السجلين (الصباحى والمسائى)، وسيتم استبدال أى قيم مدخلة يدويًا هناك. متابعة؟'))pushReceiptSummaryToSupply()">🔄 تحديث شيت توريد وإيصالات من هذا السجل</button>
     </div>
     <div id="log-morning-wrap">${wideLogTableHtml(m.receiptLogMorning, 'morning')}</div>
     <div id="log-evening-wrap" style="display:none">${wideLogTableHtml(m.receiptLogEvening, 'evening')}</div>
@@ -1083,32 +1187,107 @@ function renderReceiptEntrySheet(m){
         <button class="btn btn-o" onclick="closePriceModal()">إغلاق</button>
       </div>
     </div>
+  </div>
+
+  <div class="entry-modal-backdrop no-print" id="booklet-modal" style="display:none" onclick="if(event.target===this)closeBookletModal()">
+    <div class="entry-modal-box">
+      <div class="entry-modal-title">📖 تعريف دفتر إيصالات جديد (<span id="booklet-modal-session">صباحى</span>)</div>
+      <label style="display:block;font-size:.72rem;font-weight:800;color:var(--tm);margin-bottom:6px;text-align:right">من رقم إيصال</label>
+      <input type="text" id="booklet-start-input" class="cell-input" style="border:1px solid var(--b);text-align:center;margin-bottom:12px" placeholder="مثال: 333001">
+      <label style="display:block;font-size:.72rem;font-weight:800;color:var(--tm);margin-bottom:6px;text-align:right">إلى رقم إيصال</label>
+      <input type="text" id="booklet-end-input" class="cell-input" style="border:1px solid var(--b);text-align:center;margin-bottom:16px" placeholder="مثال: 333100">
+      <div class="entry-modal-actions">
+        <button class="btn btn-ok" onclick="startNewBooklet()">✅ بدء الدفتر</button>
+        <button class="btn btn-o" onclick="closeBookletModal()">إلغاء</button>
+      </div>
+    </div>
   </div>`;
 }
 
-/* --- جدول السجل الواسع (بنفس أعمدة ملف الإكسل: تاريخ | رقم إيصال | مجموعة | كل بند بعموده) --- */
+/* --- حساب إجمالى الدفتر وإجمالى اليومية لكل صف (يُحسب دائمًا على كامل السجل بغض النظر عن حد العرض) --- */
+function computeRowExtras(rows){
+  const extras = new Array(rows.length);
+  let bookletSum = 0, daySum = 0;
+  for(let i=0;i<rows.length;i++){
+    const r = rows[i];
+    let rowTotal = 0;
+    for(let ci=0; ci<SERVICE_NAMES.length; ci++) rowTotal += (Number(r[4+ci])||0);
+    if(i>0 && rows[i-1][3] !== r[3]) bookletSum = 0;
+    if(i>0 && rows[i-1][0] !== r[0]) daySum = 0;
+    bookletSum += rowTotal;
+    daySum += rowTotal;
+    const isLastOfBooklet = (i===rows.length-1) || (rows[i+1][3] !== r[3]);
+    const isLastOfDay = (i===rows.length-1) || (rows[i+1][0] !== r[0]);
+    extras[i] = { bookletTotal: isLastOfBooklet ? bookletSum : null, dayTotal: isLastOfDay ? daySum : null };
+  }
+  return extras;
+}
+
+/* --- جدول السجل الواسع (بنفس أعمدة ملف الإكسل + عمود الدفتر + عمودى إجمالى الدفتر وإجمالى اليومية) --- */
 function wideLogTableHtml(rows, which){
   rows = rows || [];
   const showDelete = !!which;
-  const headerCols = ['التاريخ','رقم الإيصال','المجموعة', ...SERVICE_NAMES];
+  const extras = computeRowExtras(rows);
+
+  let startIdx = 0, truncated = false;
+  if(rows.length > LOG_PAGE_SIZE && !(which && logShowAll[which])){
+    startIdx = rows.length - LOG_PAGE_SIZE;
+    truncated = true;
+  }
+
+  const headerCols = ['التاريخ','رقم الإيصال','المجموعة','الدفتر', ...SERVICE_NAMES, 'إجمالى الدفتر','إجمالى اليومية'];
   const theadHtml = headerCols.map(h=>`<th>${escapeHtml(h)}</th>`).join('') + (showDelete?'<th class="no-print" style="width:34px"></th>':'');
-  const bodyHtml = rows.map((r,i)=>{
-    const fixedCells = [0,1,2].map(ci=>`<td>${escapeHtml(r[ci])}</td>`).join('');
-    const svcCells = SERVICE_NAMES.map((_,ci)=>{
-      const v = Number(r[3+ci])||0;
-      return `<td class="num">${v?fmtNum(v):''}</td>`;
-    }).join('');
+
+  let bodyHtml = '';
+  for(let i=startIdx;i<rows.length;i++){
+    const r = rows[i];
+    const ex = extras[i];
+    const fixedCells = [0,1,2,3].map(ci=>`<td>${escapeHtml(r[ci])}</td>`).join('');
+    let svcCells = '';
+    for(let ci=0; ci<SERVICE_NAMES.length; ci++){
+      const v = Number(r[4+ci])||0;
+      svcCells += `<td class="num">${v?fmtNum(v):''}</td>`;
+    }
+    const bookletCell = `<td class="num" style="font-weight:900;color:var(--a)">${ex.bookletTotal!==null?fmt(ex.bookletTotal):''}</td>`;
+    const dayCell = `<td class="num" style="font-weight:900;color:var(--p)">${ex.dayTotal!==null?fmt(ex.dayTotal):''}</td>`;
     const delCell = showDelete ? `<td class="no-print"><button class="btn-er" onclick="removeWideLogRow('${which}',${i})">✕</button></td>` : '';
-    return `<tr>${fixedCells}${svcCells}${delCell}</tr>`;
-  }).join('') || `<tr><td colspan="${headerCols.length+(showDelete?1:0)}" style="color:var(--tm);font-weight:600">لا توجد قيود بعد</td></tr>`;
-  const totalsHtml = `<td colspan="3">الإجمالى (${rows.length} إيصال)</td>` +
-    SERVICE_NAMES.map((_,ci)=>{ const t = sumCol(rows,3+ci); return `<td class="num" style="font-weight:900">${t?fmtNum(t):'0'}</td>`; }).join('') +
+    bodyHtml += `<tr>${fixedCells}${svcCells}${bookletCell}${dayCell}${delCell}</tr>`;
+  }
+  if(!bodyHtml){
+    bodyHtml = `<tr><td colspan="${headerCols.length+(showDelete?1:0)}" style="color:var(--tm);font-weight:600">لا توجد قيود بعد</td></tr>`;
+  }
+
+  let svcTotals = '';
+  for(let ci=0; ci<SERVICE_NAMES.length; ci++){
+    const t = sumCol(rows,4+ci);
+    svcTotals += `<td class="num" style="font-weight:900">${t?fmtNum(t):'0'}</td>`;
+  }
+  const totalsHtml = `<td colspan="4">الإجمالى (${rows.length} إيصال)</td>` + svcTotals +
+    `<td class="num">—</td><td class="num">—</td>` +
     (showDelete?'<td class="no-print"></td>':'');
-  return `<div style="overflow-x:auto"><table class="tbl wide-log-tbl">
+
+  const loadMoreHtml = (truncated && which) ? `<div class="load-more-bar no-print">
+      <span>يعرض آخر ${LOG_PAGE_SIZE} من إجمالى ${rows.length} إيصال</span>
+      <button class="btn btn-o btn-sm" onclick="showAllLogRows('${which}')">⬇ تحميل باقى الصفوف (${rows.length-LOG_PAGE_SIZE})</button>
+    </div>` : '';
+
+  return `${loadMoreHtml}<div style="overflow-x:auto"><table class="tbl wide-log-tbl">
     <thead><tr>${theadHtml}</tr></thead>
     <tbody>${bodyHtml}</tbody>
     <tfoot><tr>${totalsHtml}</tr></tfoot>
   </table></div>`;
+}
+
+function showAllLogRows(which){
+  logShowAll[which] = true;
+  updateLogWrap(which);
+}
+
+function updateLogWrap(which){
+  const m = getCurrentMonth(); if(!m) return;
+  const rows = which==='morning' ? m.receiptLogMorning : m.receiptLogEvening;
+  const wrap = document.getElementById(which==='morning'?'log-morning-wrap':'log-evening-wrap');
+  if(wrap) wrap.innerHTML = wideLogTableHtml(rows, which);
 }
 
 function showLogTab(which){
@@ -1124,10 +1303,44 @@ function setReceiptSession(session){
   const ev = document.getElementById('seg-evening');
   if(mo) mo.classList.toggle('active', session==='صباحى');
   if(ev) ev.classList.toggle('active', session==='مسائى');
+  refreshEntryAvailability();
+}
+
+/* --- ملخص التوريد والإيصالات (يتحدث تلقائيًا) --- */
+function computeReceiptSummary(m){
+  let totalMorning = 0, totalEvening = 0;
+  m.receiptLogMorning.forEach(r=>{ for(let ci=0; ci<SERVICE_NAMES.length; ci++) totalMorning += (Number(r[4+ci])||0); });
+  m.receiptLogEvening.forEach(r=>{ for(let ci=0; ci<SERVICE_NAMES.length; ci++) totalEvening += (Number(r[4+ci])||0); });
+  return {
+    totalBoth: totalMorning+totalEvening,
+    totalMorning, totalEvening,
+    countMorning: m.receiptLogMorning.length,
+    countEvening: m.receiptLogEvening.length
+  };
+}
+function receiptSummaryHtml(s){
+  return `
+    <div class="rs-card"><div class="rs-lbl">إجمالى التوريد (صباحى + مسائى)</div><div class="rs-val" id="rs-total-both">${fmt(s.totalBoth)}</div></div>
+    <div class="rs-card"><div class="rs-lbl">إجمالى التوريد الصباحى</div><div class="rs-val" id="rs-total-morning">${fmt(s.totalMorning)}</div></div>
+    <div class="rs-card"><div class="rs-lbl">إجمالى التوريد المسائى</div><div class="rs-val" id="rs-total-evening">${fmt(s.totalEvening)}</div></div>
+    <div class="rs-card"><div class="rs-lbl">إجمالى الإيصالات الصباحى</div><div class="rs-val" id="rs-count-morning">${fmtNum(s.countMorning)}</div></div>
+    <div class="rs-card"><div class="rs-lbl">إجمالى الإيصالات المسائى</div><div class="rs-val" id="rs-count-evening">${fmtNum(s.countEvening)}</div></div>`;
+}
+function updateReceiptSummaryPanel(){
+  const m = getCurrentMonth(); if(!m) return;
+  const s = computeReceiptSummary(m);
+  const grid = document.getElementById('receipt-summary-grid');
+  if(grid){ grid.innerHTML = receiptSummaryHtml(s); return; }
 }
 
 /* --- نافذة إدخال المبلغ: ضغطة تفتح الشاشة المميزة، وضغطة ثانية (أو نقر مزدوج) تحفظ --- */
 function onServiceClick(idx){
+  const m = getCurrentMonth(); if(!m) return;
+  const status = bookletStatus(m, sessionKey());
+  if(!status.ok){
+    alert(status.reason==='finished' ? 'انتهى هذا الدفتر. من فضلك عرّف دفترًا جديدًا قبل المتابعة.' : 'لم يتم تعريف دفتر لهذه الفترة بعد. من فضلك اضغط "📖 تعريف دفتر جديد" أولاً.');
+    return;
+  }
   if(activeModalServiceIdx === idx){
     confirmSaveFromModal();
     return;
@@ -1135,6 +1348,9 @@ function onServiceClick(idx){
   openEntryModal(idx);
 }
 function onServiceDblClick(idx){
+  const m = getCurrentMonth(); if(!m) return;
+  const status = bookletStatus(m, sessionKey());
+  if(!status.ok) return;
   if(activeModalServiceIdx !== idx) openEntryModal(idx);
   confirmSaveFromModal();
 }
@@ -1161,27 +1377,41 @@ function closeEntryModal(){
 function confirmSaveFromModal(){
   const m = getCurrentMonth(); if(!m || m.locked) return;
   if(activeModalServiceIdx===null) return;
-  const amountVal = parseFloat(document.getElementById('modal-amount').value) || 0;
+
+  const amountVal = parseFloat(document.getElementById('modal-amount').value);
+  if(!amountVal || amountVal<=0){
+    alert('من فضلك أدخل مبلغًا أكبر من صفر — لا يمكن حفظ قيد بمبلغ صفر.');
+    return;
+  }
+
+  const sk = sessionKey();
+  const status = bookletStatus(m, sk);
+  if(!status.ok){
+    alert(status.reason==='finished' ? 'انتهى هذا الدفتر. من فضلك عرّف دفترًا جديدًا قبل المتابعة.' : 'لم يتم تعريف دفتر لهذه الفترة بعد. من فضلك عرّف دفترًا جديدًا أولاً.');
+    closeEntryModal();
+    return;
+  }
+
   const dateVal = document.getElementById('re-date').value || todayIso();
   const receiptNoVal = document.getElementById('re-receiptno').value.trim();
   const groupVal = document.getElementById('re-group').value.trim();
   if(!receiptNoVal){ alert('من فضلك أدخل رقم الإيصال.'); return; }
 
-  const row = [dateVal, receiptNoVal, groupVal, ...Array(SERVICE_NAMES.length).fill(0)];
-  row[3+activeModalServiceIdx] = amountVal;
+  const bk = m.booklet[sk];
+  const bookletLabel = `${bk.start}-${bk.end}`;
+  const row = [dateVal, receiptNoVal, groupVal, bookletLabel, ...Array(SERVICE_NAMES.length).fill(0)];
+  row[4+activeModalServiceIdx] = amountVal;
 
-  const which = receiptSelectedSession==='مسائى' ? 'evening' : 'morning';
-  if(which==='evening'){ m.receiptLogEvening.push(row); } else { m.receiptLogMorning.push(row); }
+  if(sk==='evening'){ m.receiptLogEvening.push(row); } else { m.receiptLogMorning.push(row); }
 
-  m.nextReceiptNo = incrementReceiptNo(receiptNoVal);
+  bk.current = incrementReceiptNo(receiptNoVal);
   m.lastGroup = groupVal;
-  document.getElementById('re-receiptno').value = m.nextReceiptNo;
 
   closeEntryModal();
-
-  const wrap = document.getElementById(which==='morning'?'log-morning-wrap':'log-evening-wrap');
-  if(wrap) wrap.innerHTML = wideLogTableHtml(which==='morning'?m.receiptLogMorning:m.receiptLogEvening, which);
-
+  refreshEntryAvailability();
+  updateLogWrap(sk);
+  updateReceiptSummaryPanel();
+  syncSupplyFromReceipts();
   scheduleAutoSave();
 }
 
@@ -1189,8 +1419,9 @@ function removeWideLogRow(which, idx){
   const m = getCurrentMonth(); if(!m || m.locked) return;
   const arr = which==='morning' ? m.receiptLogMorning : m.receiptLogEvening;
   arr.splice(idx,1);
-  const wrap = document.getElementById(which==='morning'?'log-morning-wrap':'log-evening-wrap');
-  if(wrap) wrap.innerHTML = wideLogTableHtml(arr, which);
+  updateLogWrap(which);
+  updateReceiptSummaryPanel();
+  syncSupplyFromReceipts();
   scheduleAutoSave();
 }
 
@@ -1227,23 +1458,23 @@ async function savePrices(){
   clearTimeout(toast._t); toast._t = setTimeout(()=>toast.classList.remove('show'), 2200);
 }
 
-/* تجميع السجلين (الصباحى والمسائى) إلى أعمدة توريد/إيصالات لكل بند، ودمجها فى شيت توريد وإيصالات */
-function pushReceiptSummaryToSupply(){
+/* تجميع السجلين (الصباحى والمسائى) إلى أعمدة توريد/إيصالات لكل بند، ومزامنتها تلقائيًا مع شيت توريد وإيصالات
+   (لا تُعدَّل إلا البنود التى لها قيود مُدخلة بالفعل، حفاظًا على أى قيم أخرى أُدخلت يدويًا) */
+function syncSupplyFromReceipts(){
   const m = getCurrentMonth(); if(!m || m.locked) return;
   const newSupply = m.supply.map(r=>[r[0], r[1], r[2], r[3], r[4]]);
   SERVICE_NAMES.forEach((name,idx)=>{
-    const morningAmt = sumCol(m.receiptLogMorning, 3+idx);
-    const eveningAmt = sumCol(m.receiptLogEvening, 3+idx);
-    const morningCount = m.receiptLogMorning.filter(r=>(Number(r[3+idx])||0)>0).length;
-    const eveningCount = m.receiptLogEvening.filter(r=>(Number(r[3+idx])||0)>0).length;
+    const morningCount = m.receiptLogMorning.filter(r=>(Number(r[4+idx])||0)>0).length;
+    const eveningCount = m.receiptLogEvening.filter(r=>(Number(r[4+idx])||0)>0).length;
+    if(morningCount===0 && eveningCount===0) return; // لا يوجد قيد بعد لهذا البند، اترك القيمة كما هى
+    const morningAmt = sumCol(m.receiptLogMorning, 4+idx);
+    const eveningAmt = sumCol(m.receiptLogEvening, 4+idx);
     const rowIdx = newSupply.findIndex(r=>r[0]===name);
     if(rowIdx>-1){ newSupply[rowIdx] = [name, morningAmt, eveningAmt, morningCount, eveningCount]; }
     else { newSupply.push([name, morningAmt, eveningAmt, morningCount, eveningCount]); }
   });
   m.supply = newSupply;
-  renderSheet();
-  scheduleAutoSave();
-  alert('تم تحديث شيت "توريد وإيصالات" بناءً على سجل القيود.');
+  if(currentSheet==='supply') renderSheet();
 }
 
 /* --- شيت منصرف الدفاتر --- */
@@ -1362,6 +1593,20 @@ function recalcPeople(){
   totals.forEach((v,i)=> setText('pt-'+(i+1), fmt(v)));
   setText('pt-grand', fmt(totals.reduce((a,b)=>a+b,0)));
 }
+
+// منع تغيير قيمة أى حقل رقم عن طريق عجلة الماوس أثناء التركيز عليه
+document.addEventListener('wheel', function(e){
+  if(document.activeElement && document.activeElement.tagName==='INPUT' && document.activeElement.type==='number'){
+    document.activeElement.blur();
+  }
+}, {passive:true});
+
+// منع أسهم الزيادة/النقصان (الأعلى/الأسفل) من تغيير قيمة حقول الأرقام
+document.addEventListener('keydown', function(e){
+  if((e.key==='ArrowUp' || e.key==='ArrowDown') && e.target && e.target.tagName==='INPUT' && e.target.type==='number'){
+    e.preventDefault();
+  }
+});
 
 init();
 </script>
