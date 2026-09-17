@@ -187,6 +187,11 @@ body{font-family:'Noto Kufi Arabic',sans-serif;background:var(--bg);color:var(--
 .colf-actions button.colf-apply{background:var(--ok);color:#fff}
 .colf-actions button:hover{filter:brightness(.96)}
 .colf-values{max-height:180px;overflow-y:auto;border-top:1px solid var(--s2);border-bottom:1px solid var(--s2);padding:4px 0}
+/* مقبض سحب خانة التاريخ (مثل مقبض التعبئة فى الإكسل) */
+.date-input{width:100%}
+.fill-handle{position:absolute;width:9px;height:9px;background:var(--p);border:1.5px solid #fff;box-shadow:0 0 0 1px var(--p);left:2px;bottom:2px;cursor:crosshair;border-radius:1px;z-index:2}
+body.date-dragging, body.date-dragging *{cursor:crosshair!important;user-select:none!important}
+tr.date-fill-target td{background:#eaf3ff!important}
 
 /* لوحة الدفتر الحالى */
 .booklet-panel{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;background:var(--s2);border:1.5px dashed var(--b);border-radius:10px;padding:10px 14px;margin-bottom:14px}
@@ -297,8 +302,14 @@ let SERVICE_NAMES = SEED.supply_p4.map(r=>r[0]);
 const MONTHS_KEY = 'sohag_fund_months_v3';
 const SERVICE_PRICES_KEY = 'sohag_fund_service_prices';
 const SERVICES_KEY = 'sohag_fund_services_list_v1';
+const SERVICE_MARTYR_KEY = 'sohag_fund_service_martyr_prices_v1';
+const HIDDEN_SERVICES_KEY = 'sohag_fund_hidden_services_v1';
 const OLD_PEOPLE_KEY = 'sohag_fund_people_distribution';
 const OLD_MONTHS_KEY_V2 = 'sohag_fund_months_v2';
+/* بنية صف السجل: [التاريخ, رقم الإيصال, المجموعة, الدفتر, الملاحظات, ...مبالغ الخدمات بالترتيب]
+   الملاحظات فى موضع ثابت (فهرس 4) حتى لا يختل ترتيبها عند إضافة خدمات جديدة لاحقًا */
+const NOTES_IDX = 4;
+const SVC_OFFSET = 5;
 /* حالة فلاتر أعمدة السجل (مثل الإكسل) لكل فترة على حدة */
 let logFilters = { morning:{}, evening:{} };
 let openFilterMenu = null; // {which, col}
@@ -310,9 +321,10 @@ let openMonths = new Set();
 let saveTimer = null;
 let receiptSelectedSession = 'صباحى';
 let activeModalServiceIdx = null;
-let logShowAll = { morning:false, evening:false };
-const LOG_PAGE_SIZE = 500;
 let SERVICE_PRICES = {};
+let SERVICE_MARTYR_PRICES = {}; // سعر فئة "شهداء" الخاص لكل خدمة (افتراضى 5 عند عدم التحديد)
+let HIDDEN_SERVICES = []; // أسماء الخدمات المُخفاة (لا تُحذف أعمدتها ولا بياناتها التاريخية)
+let dragFillState = null; // حالة سحب خانة التاريخ لتطبيقها على خانات أخرى
 
 /* ---------------- Firebase / Firestore (مشاركة البيانات بين الأجهزة) ---------------- */
 const firebaseConfig = {
@@ -325,7 +337,7 @@ const firebaseConfig = {
   measurementId: "G-3TSFR7EVNX"
 };
 const FS_COLLECTION = 'sohag_fund';
-const FS_DOCS = { [MONTHS_KEY]: 'months_v3', [SERVICE_PRICES_KEY]: 'service_prices', [SERVICES_KEY]: 'services_list' };
+const FS_DOCS = { [MONTHS_KEY]: 'months_v3', [SERVICE_PRICES_KEY]: 'service_prices', [SERVICES_KEY]: 'services_list', [SERVICE_MARTYR_KEY]: 'service_martyr_prices', [HIDDEN_SERVICES_KEY]: 'hidden_services' };
 let fsDb = null;
 try{
   if(window.firebase){
@@ -365,6 +377,13 @@ function startRealtimeSync(){
         if(m.lastGroup===undefined) m.lastGroup = '';
         if(!m.dailyTotalsMorning || typeof m.dailyTotalsMorning!=='object') m.dailyTotalsMorning = {};
         if(!m.dailyTotalsEvening || typeof m.dailyTotalsEvening!=='object') m.dailyTotalsEvening = {};
+        if(!m.notesMigrated){
+          // احتياطًا لو وصلت بيانات من جهاز لم يُحدَّث بعد بدون خانة الملاحظات
+          ['receiptLogMorning','receiptLogEvening'].forEach(key=>{
+            (m[key]||[]).forEach(r=>{ r.splice(NOTES_IDX,0,''); });
+          });
+          m.notesMigrated = true;
+        }
       });
       if(!MONTHS.find(m=>m.id===currentMonthId)){
         currentMonthId = MONTHS.length ? MONTHS[MONTHS.length-1].id : null;
@@ -534,6 +553,13 @@ async function init(){
     if(m.lastGroup===undefined) m.lastGroup = '';
     if(!m.dailyTotalsMorning || typeof m.dailyTotalsMorning!=='object') m.dailyTotalsMorning = {};
     if(!m.dailyTotalsEvening || typeof m.dailyTotalsEvening!=='object') m.dailyTotalsEvening = {};
+    if(!m.notesMigrated){
+      // ترحيل لمرة واحدة: إدراج خانة "ملاحظات" فارغة فى الفهرس الثابت 4 لكل صف قديم (قبل هذا التحديث)
+      ['receiptLogMorning','receiptLogEvening'].forEach(key=>{
+        (m[key]||[]).forEach(r=>{ r.splice(NOTES_IDX,0,''); });
+      });
+      m.notesMigrated = true;
+    }
     delete m.nextReceiptNo; // استُبدل بنظام الدفاتر لكل فترة
   });
 
@@ -555,6 +581,14 @@ async function init(){
       await storageSet(SERVICES_KEY, JSON.stringify(SERVICE_NAMES));
     }
   }catch(e){}
+  try{
+    const martyrRaw = await storageGet(SERVICE_MARTYR_KEY);
+    if(martyrRaw) SERVICE_MARTYR_PRICES = JSON.parse(martyrRaw) || {};
+  }catch(e){ SERVICE_MARTYR_PRICES = {}; }
+  try{
+    const hiddenRaw = await storageGet(HIDDEN_SERVICES_KEY);
+    if(hiddenRaw) HIDDEN_SERVICES = JSON.parse(hiddenRaw) || [];
+  }catch(e){ HIDDEN_SERVICES = []; }
   renderSidebar();
   renderSheet();
   saveAll(false);
@@ -635,6 +669,7 @@ function addMonth(){
     receiptLogEvening: [],
     dailyTotalsMorning: {},
     dailyTotalsEvening: {},
+    notesMigrated: true,
     lastGroup: '',
     booklet: { morning:{start:null,end:null,current:null}, evening:{start:null,end:null,current:null} }
   };
@@ -761,14 +796,6 @@ function bindLiveInputs(){
   const c = document.getElementById('sheet-container');
   c.oninput = (e)=>{
     const t = e.target;
-    if(t.dataset && t.dataset.daily){
-      const m = getCurrentMonth(); if(!m || m.locked) return;
-      const store = t.dataset.daily==='evening' ? m.dailyTotalsEvening : m.dailyTotalsMorning;
-      const v = t.value.trim();
-      if(v==='') delete store[t.dataset.date]; else store[t.dataset.date] = parseFloat(v)||0;
-      scheduleAutoSave();
-      return;
-    }
     if(!t.dataset || !t.dataset.arr) return;
     const m = getCurrentMonth(); if(!m || m.locked) return;
     const arr = m[t.dataset.arr];
@@ -1207,7 +1234,6 @@ function renderReceiptEntrySheet(m, session){
   // session: 'morning' | 'evening' — كل فترة أصبحت بندًا مستقلًا فى قائمة الشهر
   receiptSelectedSession = (session==='evening') ? 'مسائى' : 'صباحى';
   activeModalServiceIdx = null; // إعادة ضبط عند الدخول للشاشة أو تغيير الشهر
-  logShowAll[session] = false;
   openFilterMenu = null;
 
   const sessionLabel = session==='evening' ? 'المسائية' : 'الصباحية';
@@ -1227,7 +1253,7 @@ function renderReceiptEntrySheet(m, session){
   }
 
   const serviceButtons = SERVICE_NAMES.map((name,idx)=>
-    `<button class="service-btn" data-svc-idx="${idx}" onclick="onServiceClick(${idx})" ondblclick="onServiceDblClick(${idx})">${escapeHtml(name)}</button>`
+    HIDDEN_SERVICES.includes(name) ? '' : `<button class="service-btn" data-svc-idx="${idx}" onclick="onServiceClick(${idx})" ondblclick="onServiceDblClick(${idx})">${escapeHtml(name)}</button>`
   ).join('') || '<span style="color:var(--tm);font-weight:700;font-size:.76rem">لا توجد خدمات بعد — أضِف خدمات من صفحة "⚙ إدارة الخدمات والأسعار"</span>';
 
   return `
@@ -1306,28 +1332,28 @@ function renderReceiptEntrySheet(m, session){
 }
 
 /* --- حساب إجمالى الدفتر لكل صف (يُحسب دائمًا على كامل السجل بغض النظر عن حد العرض أو الفلتر) --- */
+/* --- حساب إجمالى الدفتر لكل صف (يُحسب دائمًا على كامل السجل بغض النظر عن الفلتر) --- */
 function computeRowExtras(rows){
   const extras = new Array(rows.length);
   let bookletSum = 0;
   for(let i=0;i<rows.length;i++){
     const r = rows[i];
     let rowTotal = 0;
-    for(let ci=0; ci<SERVICE_NAMES.length; ci++) rowTotal += (Number(r[4+ci])||0);
+    for(let ci=0; ci<SERVICE_NAMES.length; ci++) rowTotal += (Number(r[SVC_OFFSET+ci])||0);
     if(i>0 && rows[i-1][3] !== r[3]) bookletSum = 0;
     bookletSum += rowTotal;
     const isLastOfBooklet = (i===rows.length-1) || (rows[i+1][3] !== r[3]);
-    const isLastOfDay = (i===rows.length-1) || (rows[i+1][0] !== r[0]);
-    extras[i] = { bookletTotal: isLastOfBooklet ? bookletSum : null, isLastOfDay };
+    extras[i] = { bookletTotal: isLastOfBooklet ? bookletSum : null };
   }
   return extras;
 }
 
 /* --- قيمة عرض أى عمود لصف معيّن (تُستخدم لبناء قوائم الفلتر ولتطبيقه) --- */
 function wideLogCellDisplay(r, colIdx){
-  if(colIdx<4) return String(r[colIdx]==null?'':r[colIdx]).trim();
-  const svcIdx = colIdx-4;
+  if(colIdx<SVC_OFFSET) return String(r[colIdx]==null?'':r[colIdx]).trim();
+  const svcIdx = colIdx-SVC_OFFSET;
   if(svcIdx>=SERVICE_NAMES.length) return ''; // أعمدة الإجماليات المحسوبة/اليدوية لا تُفلتر
-  const v = Number(r[4+svcIdx])||0;
+  const v = Number(r[SVC_OFFSET+svcIdx])||0;
   return v ? fmtNum(v) : '';
 }
 
@@ -1437,7 +1463,77 @@ document.addEventListener('click', function(e){
   closeColumnFilterOverlay();
 });
 
-/* --- جدول السجل الواسع بنفس تنسيق ملفات الإكسل: صفوف إجمالى/عدد إيصالات أعلى الرأس + فلتر لكل عمود + عمود اليومية يدوى --- */
+/* --- تعديل تاريخ صف واحد يدويًا --- */
+function updateRowDate(session, idx, value){
+  const m = getCurrentMonth(); if(!m || m.locked) return;
+  const rows = session==='evening' ? m.receiptLogEvening : m.receiptLogMorning;
+  if(rows[idx]) rows[idx][0] = value;
+  scheduleAutoSave();
+  updateLogWrap(session);
+}
+
+/* --- سحب خانة التاريخ (مثل مقبض التعبئة فى الإكسل) لتطبيق نفس التاريخ على عدة صفوف تحتها --- */
+function startDateDragFill(session, idx, value, evt){
+  evt.preventDefault();
+  dragFillState = { session, idx, value, targetIdx: idx };
+  document.body.classList.add('date-dragging');
+  document.addEventListener('mousemove', onDateDragMove);
+  document.addEventListener('mouseup', onDateDragEnd);
+}
+function onDateDragMove(e){
+  if(!dragFillState) return;
+  const el = document.elementFromPoint(e.clientX, e.clientY);
+  const rowEl = el && el.closest ? el.closest('tr[data-row-idx]') : null;
+  document.querySelectorAll('tr.date-fill-target').forEach(tr=>tr.classList.remove('date-fill-target'));
+  if(rowEl){
+    const targetIdx = Number(rowEl.dataset.rowIdx);
+    dragFillState.targetIdx = targetIdx;
+    const lo = Math.min(dragFillState.idx, targetIdx), hi = Math.max(dragFillState.idx, targetIdx);
+    document.querySelectorAll('tr[data-row-idx]').forEach(tr=>{
+      const ri = Number(tr.dataset.rowIdx);
+      if(ri>=lo && ri<=hi && ri!==dragFillState.idx) tr.classList.add('date-fill-target');
+    });
+  }
+}
+function onDateDragEnd(){
+  document.removeEventListener('mousemove', onDateDragMove);
+  document.removeEventListener('mouseup', onDateDragEnd);
+  document.body.classList.remove('date-dragging');
+  document.querySelectorAll('tr.date-fill-target').forEach(tr=>tr.classList.remove('date-fill-target'));
+  if(dragFillState && dragFillState.targetIdx!==undefined && dragFillState.targetIdx!==dragFillState.idx){
+    const m = getCurrentMonth();
+    if(m && !m.locked){
+      const rows = dragFillState.session==='evening' ? m.receiptLogEvening : m.receiptLogMorning;
+      const lo = Math.min(dragFillState.idx, dragFillState.targetIdx);
+      const hi = Math.max(dragFillState.idx, dragFillState.targetIdx);
+      for(let i=lo;i<=hi;i++){ if(rows[i]) rows[i][0] = dragFillState.value; }
+      scheduleAutoSave();
+      updateLogWrap(dragFillState.session);
+    }
+  }
+  dragFillState = null;
+}
+
+/* --- تعديل ملاحظة صف واحد --- */
+function updateRowNote(session, idx, value){
+  const m = getCurrentMonth(); if(!m || m.locked) return;
+  const rows = session==='evening' ? m.receiptLogEvening : m.receiptLogMorning;
+  if(rows[idx]) rows[idx][NOTES_IDX] = value;
+  scheduleAutoSave();
+}
+
+/* --- تعديل إجمالى اليومية اليدوى — يمكن الكتابة فى أى خانة من نفس اليوم وتنعكس على كل صفوفه --- */
+function setDailyTotalValue(session, dateKey, val){
+  const m = getCurrentMonth(); if(!m || m.locked) return;
+  const store = session==='evening' ? m.dailyTotalsEvening : m.dailyTotalsMorning;
+  const v = String(val).trim();
+  if(v==='') delete store[dateKey]; else store[dateKey] = parseFloat(v)||0;
+  scheduleAutoSave();
+  updateLogWrap(session);
+}
+
+/* --- جدول السجل الواسع بنفس تنسيق ملفات الإكسل: صفوف إجمالى/عدد إيصالات أعلى الرأس + فلتر لكل عمود
+   + عمود ملاحظات + عمود اليومية يدوى (قابل للتعديل من أى خانة) + سحب التاريخ + عرض كل الصفوف دائمًا --- */
 function wideLogTableHtml(rows, editableSession, m, session){
   rows = rows || [];
   const showDelete = !!editableSession;
@@ -1446,13 +1542,7 @@ function wideLogTableHtml(rows, editableSession, m, session){
   const hasActiveFilter = logFilters[session] && Object.keys(logFilters[session]).length>0;
   const dailyStore = session==='evening' ? (m && m.dailyTotalsEvening) : (m && m.dailyTotalsMorning);
 
-  let startIdx = 0, truncated = false;
-  if(filtered.length > LOG_PAGE_SIZE && !(session && logShowAll[session])){
-    startIdx = filtered.length - LOG_PAGE_SIZE;
-    truncated = true;
-  }
-
-  const fixedHeaders = ['التاريخ','رقم الإيصال','المجموعة','الدفتر'];
+  const fixedHeaders = ['التاريخ','رقم الإيصال','المجموعة','الدفتر','ملاحظات'];
   const allHeaders = [...fixedHeaders, ...SERVICE_NAMES, 'إجمالى الدفتر','إجمالى اليومية (إدخال يدوى)'];
   const colBandClass = idx => {
     // ألوان أعمدة دورية على شكل مجموعات، بنفس روح شيت الإكسل الملوّن
@@ -1470,7 +1560,7 @@ function wideLogTableHtml(rows, editableSession, m, session){
     if(idx < fixedHeaders.length) return `<td class="excel-count">${idx===0?'عدد الإيصالات':''}</td>`;
     if(idx >= fixedHeaders.length + SERVICE_NAMES.length) return `<td class="excel-count">—</td>`;
     const svcIdx = idx - fixedHeaders.length;
-    const count = filtered.filter(({r})=>(Number(r[4+svcIdx])||0)>0).length;
+    const count = filtered.filter(({r})=>(Number(r[SVC_OFFSET+svcIdx])||0)>0).length;
     return `<td class="excel-count num">${count||''}</td>`;
   }).join('') + (showDelete?'<td class="no-print"></td>':'');
 
@@ -1479,7 +1569,7 @@ function wideLogTableHtml(rows, editableSession, m, session){
     if(idx < fixedHeaders.length) return `<td class="excel-supply-total">${idx===0?'اجمالى التوريد':''}</td>`;
     if(idx >= fixedHeaders.length + SERVICE_NAMES.length) return `<td class="excel-supply-total">—</td>`;
     const svcIdx = idx - fixedHeaders.length;
-    const total = filtered.reduce((s,{r})=> s + (Number(r[4+svcIdx])||0), 0);
+    const total = filtered.reduce((s,{r})=> s + (Number(r[SVC_OFFSET+svcIdx])||0), 0);
     return `<td class="excel-supply-total num">${total?fmtNum(total):''}</td>`;
   }).join('') + (showDelete?'<td class="no-print"></td>':'');
 
@@ -1495,30 +1585,36 @@ function wideLogTableHtml(rows, editableSession, m, session){
   }).join('') + (showDelete?'<th class="no-print" style="width:34px"></th>':'');
 
   let bodyHtml = '';
-  for(let i=startIdx;i<filtered.length;i++){
+  for(let i=0;i<filtered.length;i++){
     const { r, i: origIdx } = filtered[i];
     const ex = extras[origIdx];
-    const fixedCells = [0,1,2,3].map(ci=>`<td>${escapeHtml(r[ci])}</td>`).join('');
+
+    const dateCell = editableSession
+      ? `<td style="position:relative"><input type="text" class="cell-input date-input" style="border:1px solid var(--b);text-align:center;padding-left:14px" value="${escapeHtml(r[0])}" onchange="updateRowDate('${session}',${origIdx},this.value)"><span class="fill-handle" title="اسحب لتطبيق نفس التاريخ على صفوف أخرى" onmousedown="startDateDragFill('${session}',${origIdx},this.previousElementSibling.value,event)"></span></td>`
+      : `<td>${escapeHtml(r[0])}</td>`;
+    const midFixedCells = [1,2,3].map(ci=>`<td>${escapeHtml(r[ci])}</td>`).join('');
+    const notesCell = editableSession
+      ? `<td><input type="text" class="cell-input" style="border:1px solid var(--b);min-width:130px" value="${escapeHtml(r[NOTES_IDX]||'')}" placeholder="ملاحظة..." onchange="updateRowNote('${session}',${origIdx},this.value)"></td>`
+      : `<td style="white-space:normal;min-width:110px">${escapeHtml(r[NOTES_IDX]||'')}</td>`;
+
     let svcCells = '';
     for(let ci=0; ci<SERVICE_NAMES.length; ci++){
-      const v = Number(r[4+ci])||0;
+      const v = Number(r[SVC_OFFSET+ci])||0;
       svcCells += `<td class="num">${v?fmtNum(v):''}</td>`;
     }
     const bookletCell = `<td class="num" style="font-weight:900;color:var(--a)">${ex.bookletTotal!==null?fmt(ex.bookletTotal):''}</td>`;
+
+    const dateKey = r[0];
+    const storedVal = dailyStore ? dailyStore[dateKey] : undefined;
+    const hasStoredVal = storedVal!==undefined && storedVal!==null && storedVal!=='';
     let dayCell;
-    if(ex.isLastOfDay){
-      const dateKey = r[0];
-      const storedVal = dailyStore ? dailyStore[dateKey] : undefined;
-      if(editableSession){
-        dayCell = `<td><input type="number" step="0.01" class="cell-input" style="font-weight:900;color:var(--p);text-align:center" data-daily="${session}" data-date="${escapeHtml(dateKey)}" value="${storedVal!==undefined && storedVal!==null && storedVal!=='' ? storedVal : ''}" placeholder="أدخل يدويًا"></td>`;
-      } else {
-        dayCell = `<td class="num" style="font-weight:900;color:var(--p)">${storedVal!==undefined && storedVal!==null && storedVal!=='' ? fmt(storedVal) : ''}</td>`;
-      }
+    if(editableSession){
+      dayCell = `<td><input type="number" step="0.01" class="cell-input" style="font-weight:900;color:var(--p);text-align:center" value="${hasStoredVal?storedVal:''}" placeholder="—" onchange="setDailyTotalValue('${session}','${escapeHtml(dateKey)}',this.value)"></td>`;
     } else {
-      dayCell = `<td></td>`;
+      dayCell = `<td class="num" style="font-weight:900;color:var(--p)">${hasStoredVal?fmt(storedVal):''}</td>`;
     }
     const delCell = showDelete ? `<td class="no-print"><button class="btn-er" onclick="removeWideLogRow('${editableSession}',${origIdx})">✕</button></td>` : '';
-    bodyHtml += `<tr>${fixedCells}${svcCells}${bookletCell}${dayCell}${delCell}</tr>`;
+    bodyHtml += `<tr data-row-idx="${origIdx}">${dateCell}${midFixedCells}${notesCell}${svcCells}${bookletCell}${dayCell}${delCell}</tr>`;
   }
   if(!bodyHtml){
     bodyHtml = `<tr><td colspan="${allHeaders.length+(showDelete?1:0)}" style="color:var(--tm);font-weight:600">${hasActiveFilter?'لا توجد صفوف مطابقة للفلتر الحالى':'لا توجد قيود بعد'}</td></tr>`;
@@ -1526,24 +1622,19 @@ function wideLogTableHtml(rows, editableSession, m, session){
 
   let svcTotals = '';
   for(let ci=0; ci<SERVICE_NAMES.length; ci++){
-    const t = filtered.reduce((s,{r})=> s + (Number(r[4+ci])||0), 0);
+    const t = filtered.reduce((s,{r})=> s + (Number(r[SVC_OFFSET+ci])||0), 0);
     svcTotals += `<td class="num" style="font-weight:900">${t?fmtNum(t):'0'}</td>`;
   }
-  const totalsHtml = `<td colspan="4">الإجمالى (${filtered.length} إيصال${hasActiveFilter?' — بعد الفلتر من '+rows.length:''})</td>` + svcTotals +
+  const totalsHtml = `<td colspan="5">الإجمالى (${filtered.length} إيصال${hasActiveFilter?' — بعد الفلتر من '+rows.length:''})</td>` + svcTotals +
     `<td class="num">—</td><td class="num">—</td>` +
     (showDelete?'<td class="no-print"></td>':'');
-
-  const loadMoreHtml = (truncated && session) ? `<div class="load-more-bar no-print">
-      <span>يعرض آخر ${LOG_PAGE_SIZE} من إجمالى ${filtered.length} إيصال</span>
-      <button class="btn btn-o btn-sm" onclick="showAllLogRows('${session}')">⬇ تحميل باقى الصفوف (${filtered.length-LOG_PAGE_SIZE})</button>
-    </div>` : '';
 
   const filterBar = hasActiveFilter ? `<div class="load-more-bar no-print" style="background:#fbeedd;border-color:#eccf9c">
       <span>⚠ يوجد فلتر مُفعّل على عمود واحد أو أكثر — الأرقام أعلى الجدول والإجمالى محسوبة على الصفوف الظاهرة فقط</span>
       <button class="btn btn-o btn-sm" onclick="clearAllColumnFilters('${session}')">✕ مسح كل الفلاتر</button>
     </div>` : '';
 
-  return `${filterBar}${loadMoreHtml}<div style="overflow-x:auto"><table class="tbl wide-log-tbl excel-style">
+  return `${filterBar}<div style="overflow-x:auto"><table class="tbl wide-log-tbl excel-style">
     <thead>
       <tr class="excel-band-row">${bandRowHtml}</tr>
       <tr class="excel-summary-row">${countCells}</tr>
@@ -1553,11 +1644,6 @@ function wideLogTableHtml(rows, editableSession, m, session){
     <tbody>${bodyHtml}</tbody>
     <tfoot><tr>${totalsHtml}</tr></tfoot>
   </table></div>`;
-}
-
-function showAllLogRows(session){
-  logShowAll[session] = true;
-  updateLogWrap(session);
 }
 
 function updateLogWrap(session){
@@ -1574,13 +1660,13 @@ function exportLogToExcel(session){
   const dailyStore = session==='evening' ? m.dailyTotalsEvening : m.dailyTotalsMorning;
   if(!rows.length){ alert('لا توجد بيانات فى هذا السجل لتصديرها.'); return; }
   const extras = computeRowExtras(rows);
-  const header = ['التاريخ','رقم الإيصال','المجموعة','الدفتر', ...SERVICE_NAMES, 'إجمالى الدفتر','إجمالى اليومية (يدوى)'];
+  const header = ['التاريخ','رقم الإيصال','المجموعة','الدفتر','ملاحظات', ...SERVICE_NAMES, 'إجمالى الدفتر','إجمالى اليومية (يدوى)'];
   const aoa = [header];
   rows.forEach((r,i)=>{
     const ex = extras[i];
-    const svcVals = SERVICE_NAMES.map((n,ci)=> Number(r[4+ci])||0);
-    const dayVal = ex.isLastOfDay ? (dailyStore && dailyStore[r[0]]!==undefined ? dailyStore[r[0]] : '') : '';
-    aoa.push([r[0]||'', r[1]||'', r[2]||'', r[3]||'', ...svcVals, ex.bookletTotal!==null?ex.bookletTotal:'', dayVal]);
+    const svcVals = SERVICE_NAMES.map((n,ci)=> Number(r[SVC_OFFSET+ci])||0);
+    const dayVal = (dailyStore && dailyStore[r[0]]!==undefined) ? dailyStore[r[0]] : '';
+    aoa.push([r[0]||'', r[1]||'', r[2]||'', r[3]||'', r[NOTES_IDX]||'', ...svcVals, ex.bookletTotal!==null?ex.bookletTotal:'', dayVal]);
   });
   const ws = XLSX.utils.aoa_to_sheet(aoa);
   const wb = XLSX.utils.book_new();
@@ -1593,8 +1679,8 @@ function exportLogToExcel(session){
 /* --- ملخص التوريد والإيصالات (يتحدث تلقائيًا) --- */
 function computeReceiptSummary(m){
   let totalMorning = 0, totalEvening = 0;
-  m.receiptLogMorning.forEach(r=>{ for(let ci=0; ci<SERVICE_NAMES.length; ci++) totalMorning += (Number(r[4+ci])||0); });
-  m.receiptLogEvening.forEach(r=>{ for(let ci=0; ci<SERVICE_NAMES.length; ci++) totalEvening += (Number(r[4+ci])||0); });
+  m.receiptLogMorning.forEach(r=>{ for(let ci=0; ci<SERVICE_NAMES.length; ci++) totalMorning += (Number(r[SVC_OFFSET+ci])||0); });
+  m.receiptLogEvening.forEach(r=>{ for(let ci=0; ci<SERVICE_NAMES.length; ci++) totalEvening += (Number(r[SVC_OFFSET+ci])||0); });
   return {
     totalBoth: totalMorning+totalEvening,
     totalMorning, totalEvening,
@@ -1683,8 +1769,8 @@ function confirmSaveFromModal(){
 
   const bk = m.booklet[sk];
   const bookletLabel = `${bk.start}-${bk.end}`;
-  const row = [dateVal, receiptNoVal, groupVal, bookletLabel, ...Array(SERVICE_NAMES.length).fill(0)];
-  row[4+activeModalServiceIdx] = amountVal;
+  const row = [dateVal, receiptNoVal, groupVal, bookletLabel, '', ...Array(SERVICE_NAMES.length).fill(0)];
+  row[SVC_OFFSET+activeModalServiceIdx] = amountVal;
 
   if(sk==='evening'){ m.receiptLogEvening.push(row); } else { m.receiptLogMorning.push(row); }
 
@@ -1719,14 +1805,36 @@ function toastSaved(msg){
 }
 
 function renderServicesManagerSheet(){
-  const rowsHtml = SERVICE_NAMES.map((name,idx)=>{
+  const activeRows = SERVICE_NAMES.map((name,idx)=>{
+    if(HIDDEN_SERVICES.includes(name)) return '';
     const price = SERVICE_PRICES[name];
+    const martyr = SERVICE_MARTYR_PRICES[name];
     return `<tr>
       <td><input class="cell-input name-input" style="border:1px solid var(--b)" value="${escapeHtml(name)}" onchange="renameServiceAction(${idx}, this.value)"></td>
       <td><input type="number" step="0.01" class="cell-input" style="border:1px solid var(--b);text-align:center" value="${price!==undefined?price:''}" placeholder="0.00" onchange="setServicePriceAction(${idx}, this.value)"></td>
-      <td class="no-print" style="text-align:center"><button class="btn-er" onclick="deleteServiceAction(${idx})">🗑 حذف</button></td>
+      <td><input type="number" step="0.01" class="cell-input" style="border:1px solid var(--b);text-align:center" value="${martyr!==undefined?martyr:5}" onchange="setServiceMartyrAction(${idx}, this.value)"></td>
+      <td class="no-print" style="text-align:center"><button class="btn-er" onclick="deleteServiceAction(${idx})">🙈 إخفاء</button></td>
     </tr>`;
-  }).join('') || `<tr><td colspan="3" style="color:var(--tm);font-weight:600">لا توجد خدمات بعد — اضغط "➕ إضافة خدمة جديدة"</td></tr>`;
+  }).join('') || '';
+  const rowsHtml = activeRows || `<tr><td colspan="4" style="color:var(--tm);font-weight:600">لا توجد خدمات نشطة — اضغط "➕ إضافة خدمة جديدة"</td></tr>`;
+
+  const hiddenNames = SERVICE_NAMES.filter(n=>HIDDEN_SERVICES.includes(n));
+  const hiddenSection = hiddenNames.length ? `
+  <div class="sheet-card">
+    <h2>🙈 الخدمات المخفية (${hiddenNames.length})</h2>
+    <div style="font-size:.72rem;font-weight:700;color:var(--tm);margin-bottom:12px">
+      هذه الخدمات لا تظهر فى شاشة إدخال التوريد ولا فى القائمة النشطة أعلاه، لكن أعمدتها وبياناتها التاريخية باقية بالكامل فى السجل ولم تُحذف. اضغط "↩ إظهار" لإعادتها للاستخدام.
+    </div>
+    <div style="overflow-x:auto">
+    <table class="tbl">
+      <thead><tr><th style="min-width:220px">اسم الخدمة</th><th class="no-print" style="width:100px"></th></tr></thead>
+      <tbody>${hiddenNames.map(name=>{
+        const idx = SERVICE_NAMES.indexOf(name);
+        return `<tr><td>${escapeHtml(name)}</td><td class="no-print" style="text-align:center"><button class="btn btn-o btn-sm" onclick="restoreServiceAction(${idx})">↩ إظهار</button></td></tr>`;
+      }).join('')}</tbody>
+    </table>
+    </div>
+  </div>` : '';
 
   return `
   <div class="sheet-card">
@@ -1737,17 +1845,17 @@ function renderServicesManagerSheet(){
       </div>
     </div>
     <div style="font-size:.72rem;font-weight:700;color:var(--tm);margin-bottom:14px;line-height:1.7">
-      هذه القائمة مشتركة بين كل الشهور وكل الأجهزة. أى خدمة تُضاف هنا تظهر تلقائيًا كبند فى شاشتى إدخال التوريد (الصباحية والمسائية) وكعمود جديد فى السجل.
-      السعر الافتراضى يظهر تلقائيًا عند فتح شاشة إدخال المبلغ لهذا البند، ويمكن تغييره وقت الإدخال إن لزم الأمر.
-      <br>⚠ حذف خدمة يحذف كل بياناتها المُدخلة سابقًا من سجلات كل الشهور بشكل نهائى ولا يمكن التراجع عنه.
+      هذه القائمة مشتركة بين كل الشهور وكل الأجهزة. أى خدمة تُضاف هنا تظهر تلقائيًا كبند فى شاشتى إدخال التوريد (الصباحية والمسائية) وكعمود جديد فى السجل، وسعر فئة "شهداء" الخاص بها يبدأ افتراضيًا بقيمة 5 ويمكن تعديله.
+      <br>⚠ "إخفاء" خدمة يمنعها من الظهور فى شاشة الإدخال فقط — عمودها وكل بياناتها التاريخية فى السجل تبقى محفوظة كما هى ولا تُحذف نهائيًا.
     </div>
     <div style="overflow-x:auto">
     <table class="tbl">
-      <thead><tr><th style="min-width:220px">اسم الخدمة</th><th style="width:190px">السعر الافتراضى (ج.م)</th><th class="no-print" style="width:100px"></th></tr></thead>
+      <thead><tr><th style="min-width:220px">اسم الخدمة</th><th style="width:170px">السعر الافتراضى (ج.م)</th><th style="width:150px">سعر شهداء (ج.م)</th><th class="no-print" style="width:100px"></th></tr></thead>
       <tbody>${rowsHtml}</tbody>
     </table>
     </div>
   </div>
+  ${hiddenSection}
 
   <div class="entry-modal-backdrop no-print" id="add-service-modal" style="display:none" onclick="if(event.target===this)closeAddServiceModal()">
     <div class="entry-modal-box" style="text-align:right">
@@ -1755,7 +1863,9 @@ function renderServicesManagerSheet(){
       <label style="display:block;font-size:.72rem;font-weight:800;color:var(--tm);margin-bottom:6px">اسم الخدمة</label>
       <input type="text" id="new-svc-name" class="cell-input" style="border:1px solid var(--b);margin-bottom:14px" placeholder="مثال: أشعة رنين مفصل">
       <label style="display:block;font-size:.72rem;font-weight:800;color:var(--tm);margin-bottom:6px">السعر الافتراضى (ج.م) — اختيارى</label>
-      <input type="number" step="0.01" id="new-svc-price" class="cell-input" style="border:1px solid var(--b);margin-bottom:16px;text-align:center" placeholder="0.00">
+      <input type="number" step="0.01" id="new-svc-price" class="cell-input" style="border:1px solid var(--b);margin-bottom:14px;text-align:center" placeholder="0.00">
+      <label style="display:block;font-size:.72rem;font-weight:800;color:var(--tm);margin-bottom:6px">سعر فئة شهداء (ج.م)</label>
+      <input type="number" step="0.01" id="new-svc-martyr" class="cell-input" style="border:1px solid var(--b);margin-bottom:16px;text-align:center" value="5">
       <div class="entry-modal-actions">
         <button class="btn btn-ok" onclick="confirmAddService()">💾 إضافة</button>
         <button class="btn btn-o" onclick="closeAddServiceModal()">إلغاء</button>
@@ -1769,6 +1879,7 @@ function openAddServiceModal(){
   if(!modal) return;
   document.getElementById('new-svc-name').value = '';
   document.getElementById('new-svc-price').value = '';
+  document.getElementById('new-svc-martyr').value = '5';
   modal.style.display = 'flex';
   setTimeout(()=>{ document.getElementById('new-svc-name').focus(); }, 30);
 }
@@ -1779,12 +1890,15 @@ function closeAddServiceModal(){
 async function confirmAddService(){
   const name = document.getElementById('new-svc-name').value.trim();
   const price = parseFloat(document.getElementById('new-svc-price').value);
+  const martyr = parseFloat(document.getElementById('new-svc-martyr').value);
   if(!name){ alert('من فضلك أدخل اسم الخدمة.'); return; }
   if(SERVICE_NAMES.includes(name)){ alert('هذه الخدمة موجودة بالفعل فى القائمة.'); return; }
   SERVICE_NAMES.push(name);
   if(!isNaN(price) && price>0) SERVICE_PRICES[name] = price;
+  SERVICE_MARTYR_PRICES[name] = !isNaN(martyr) ? martyr : 5; // القيمة الافتراضية 5 فى نفس صف الخدمة مباشرة
   await storageSet(SERVICES_KEY, JSON.stringify(SERVICE_NAMES));
   await storageSet(SERVICE_PRICES_KEY, JSON.stringify(SERVICE_PRICES));
+  await storageSet(SERVICE_MARTYR_KEY, JSON.stringify(SERVICE_MARTYR_PRICES));
   closeAddServiceModal();
   renderSheet();
   toastSaved('✔ تمت إضافة الخدمة');
@@ -1795,9 +1909,13 @@ async function renameServiceAction(idx, newNameRaw){
   if(!newName || newName===oldName){ renderSheet(); return; }
   if(SERVICE_NAMES.includes(newName)){ alert('يوجد بالفعل خدمة بنفس هذا الاسم.'); renderSheet(); return; }
   if(SERVICE_PRICES[oldName]!==undefined){ SERVICE_PRICES[newName] = SERVICE_PRICES[oldName]; delete SERVICE_PRICES[oldName]; }
+  if(SERVICE_MARTYR_PRICES[oldName]!==undefined){ SERVICE_MARTYR_PRICES[newName] = SERVICE_MARTYR_PRICES[oldName]; delete SERVICE_MARTYR_PRICES[oldName]; }
+  if(HIDDEN_SERVICES.includes(oldName)){ HIDDEN_SERVICES[HIDDEN_SERVICES.indexOf(oldName)] = newName; }
   SERVICE_NAMES[idx] = newName;
   await storageSet(SERVICES_KEY, JSON.stringify(SERVICE_NAMES));
   await storageSet(SERVICE_PRICES_KEY, JSON.stringify(SERVICE_PRICES));
+  await storageSet(SERVICE_MARTYR_KEY, JSON.stringify(SERVICE_MARTYR_PRICES));
+  await storageSet(HIDDEN_SERVICES_KEY, JSON.stringify(HIDDEN_SERVICES));
   renderSheet();
   toastSaved('✔ تم تعديل اسم الخدمة');
 }
@@ -1808,22 +1926,31 @@ async function setServicePriceAction(idx, val){
   await storageSet(SERVICE_PRICES_KEY, JSON.stringify(SERVICE_PRICES));
   toastSaved('✔ تم حفظ السعر');
 }
+async function setServiceMartyrAction(idx, val){
+  const name = SERVICE_NAMES[idx];
+  const v = parseFloat(val);
+  SERVICE_MARTYR_PRICES[name] = !isNaN(v) ? v : 5;
+  await storageSet(SERVICE_MARTYR_KEY, JSON.stringify(SERVICE_MARTYR_PRICES));
+  toastSaved('✔ تم حفظ سعر الشهداء');
+}
+/* --- "حذف" خدمة = إخفاؤها فقط عن شاشة الإدخال؛ عمودها وكل بياناتها التاريخية فى السجل تبقى كما هى --- */
 async function deleteServiceAction(idx){
   const name = SERVICE_NAMES[idx];
-  if(!confirm(`هل أنت متأكد من حذف الخدمة "${name}"؟ سيتم حذف كل قيودها من سجلات كل الشهور نهائيًا ولا يمكن التراجع.`)) return;
-  MONTHS.forEach(mo=>{
-    ['receiptLogMorning','receiptLogEvening'].forEach(key=>{
-      (mo[key]||[]).forEach(r=>{ if(r.length > 4+idx) r.splice(4+idx,1); });
-    });
-  });
-  SERVICE_NAMES.splice(idx,1);
-  delete SERVICE_PRICES[name];
-  await storageSet(SERVICES_KEY, JSON.stringify(SERVICE_NAMES));
-  await storageSet(SERVICE_PRICES_KEY, JSON.stringify(SERVICE_PRICES));
-  saveAll(false);
+  if(!confirm(`سيتم إخفاء الخدمة "${name}" من شاشة إدخال التوريد وقائمة الخدمات النشطة فقط.\nعمودها وكل القيود المُدخلة لها سابقًا فى السجل ستبقى محفوظة دون أى حذف، ويمكنك إظهارها مرة أخرى فى أى وقت.\n\nهل تريد المتابعة؟`)) return;
+  if(!HIDDEN_SERVICES.includes(name)) HIDDEN_SERVICES.push(name);
+  await storageSet(HIDDEN_SERVICES_KEY, JSON.stringify(HIDDEN_SERVICES));
   renderSheet();
-  toastSaved('✔ تم حذف الخدمة');
+  toastSaved('✔ تم إخفاء الخدمة (بياناتها محفوظة)');
 }
+async function restoreServiceAction(idx){
+  const name = SERVICE_NAMES[idx];
+  const pos = HIDDEN_SERVICES.indexOf(name);
+  if(pos>-1) HIDDEN_SERVICES.splice(pos,1);
+  await storageSet(HIDDEN_SERVICES_KEY, JSON.stringify(HIDDEN_SERVICES));
+  renderSheet();
+  toastSaved('✔ تم إظهار الخدمة مرة أخرى');
+}
+
 
 /* تجميع السجلين (الصباحى والمسائى) إلى أعمدة توريد/إيصالات لكل بند، ومزامنتها تلقائيًا مع شيت توريد وإيصالات
    (لا تُعدَّل إلا البنود التى لها قيود مُدخلة بالفعل، حفاظًا على أى قيم أخرى أُدخلت يدويًا) */
@@ -1831,11 +1958,11 @@ function syncSupplyFromReceipts(){
   const m = getCurrentMonth(); if(!m || m.locked) return;
   const newSupply = m.supply.map(r=>[r[0], r[1], r[2], r[3], r[4]]);
   SERVICE_NAMES.forEach((name,idx)=>{
-    const morningCount = m.receiptLogMorning.filter(r=>(Number(r[4+idx])||0)>0).length;
-    const eveningCount = m.receiptLogEvening.filter(r=>(Number(r[4+idx])||0)>0).length;
+    const morningCount = m.receiptLogMorning.filter(r=>(Number(r[SVC_OFFSET+idx])||0)>0).length;
+    const eveningCount = m.receiptLogEvening.filter(r=>(Number(r[SVC_OFFSET+idx])||0)>0).length;
     if(morningCount===0 && eveningCount===0) return; // لا يوجد قيد بعد لهذا البند، اترك القيمة كما هى
-    const morningAmt = sumCol(m.receiptLogMorning, 4+idx);
-    const eveningAmt = sumCol(m.receiptLogEvening, 4+idx);
+    const morningAmt = sumCol(m.receiptLogMorning, SVC_OFFSET+idx);
+    const eveningAmt = sumCol(m.receiptLogEvening, SVC_OFFSET+idx);
     const rowIdx = newSupply.findIndex(r=>r[0]===name);
     if(rowIdx>-1){ newSupply[rowIdx] = [name, morningAmt, eveningAmt, morningCount, eveningCount]; }
     else { newSupply.push([name, morningAmt, eveningAmt, morningCount, eveningCount]); }
