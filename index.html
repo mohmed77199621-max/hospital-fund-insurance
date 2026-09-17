@@ -249,6 +249,7 @@ input[type=number]{-moz-appearance:textfield}
 
     <div class="sidebar-footer">
       <button class="btn btn-a" style="width:100%;justify-content:center" onclick="window.print()">🖨 طباعة / معاينة الطباعة</button>
+      <button class="btn" style="width:100%;justify-content:center;margin-top:8px;background:#fdf0ee;color:var(--er);border:1.5px solid #f1c7c1" onclick="resetAllData()">🗑 حذف كل البيانات والبدء من جديد</button>
       <div class="cloud-status" id="cloud-status">⏳ جارى الاتصال بقاعدة البيانات...</div>
     </div>
   </aside>
@@ -352,7 +353,7 @@ function startRealtimeSync(){
     if(isTyping) return; // لا تُحدّث الشاشة أثناء كتابة المستخدم لتفادى فقد التركيز
     try{
       const parsed = JSON.parse(data.json);
-      if(!Array.isArray(parsed) || !parsed.length) return;
+      if(!Array.isArray(parsed)) return; // نقبل المصفوفة الفارغة [] كحذف كامل عمدى من جهاز آخر
       if(JSON.stringify(parsed)===JSON.stringify(MONTHS)) return; // لا تغيير فعلى
       MONTHS = parsed;
       const seedIds = new Set(SEED.periods.map(p=>p.id));
@@ -362,6 +363,8 @@ function startRealtimeSync(){
         if(!Array.isArray(m.receiptLogEvening)) m.receiptLogEvening = [];
         if(!m.booklet) m.booklet = { morning:{start:null,end:null,current:null}, evening:{start:null,end:null,current:null} };
         if(m.lastGroup===undefined) m.lastGroup = '';
+        if(!m.dailyTotalsMorning || typeof m.dailyTotalsMorning!=='object') m.dailyTotalsMorning = {};
+        if(!m.dailyTotalsEvening || typeof m.dailyTotalsEvening!=='object') m.dailyTotalsEvening = {};
       });
       if(!MONTHS.find(m=>m.id===currentMonthId)){
         currentMonthId = MONTHS.length ? MONTHS[MONTHS.length-1].id : null;
@@ -425,6 +428,14 @@ async function storageSet(key, value){
   try{ localStorage.setItem(key, value); localOk = true; }catch(e){}
   return cloudOk || localOk;
 }
+async function storageClear(key){
+  if(fsDb && FS_DOCS[key]){
+    try{ await fsDb.collection(FS_COLLECTION).doc(FS_DOCS[key]).delete(); }
+    catch(e){ console.warn('تعذر حذف المستند من Firestore:', key, e); }
+  }
+  try{ if(window.storage) await window.storage.delete(key, false); }catch(e){}
+  try{ localStorage.removeItem(key); }catch(e){}
+}
 
 function uid(){ return 'm'+Date.now()+Math.floor(Math.random()*1000); }
 function escapeHtml(s){ return String(s??'').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
@@ -481,7 +492,8 @@ async function init(){
   if(raw){
     try{
       const parsed = JSON.parse(raw);
-      if(Array.isArray(parsed) && parsed.length) MONTHS = parsed;
+      // نحترم مصفوفة فارغة [] كحالة "بدء من جديد عمدًا" بعد الحذف الكامل، ولا نُعيد زرع الشهور الأصلية إلا عند عدم وجود أى بيانات محفوظة إطلاقًا
+      if(Array.isArray(parsed)) MONTHS = parsed;
       else MONTHS = seedFromOriginal();
     }catch(e){ MONTHS = seedFromOriginal(); }
   } else {
@@ -800,6 +812,35 @@ function liveRecalc(arrName){
 function updateHeader(m, sheetLabel){
   document.getElementById('crumb').innerHTML = m ? `الشهر: <b>${escapeHtml(m.label)}</b>` : '—';
   document.getElementById('page-title').textContent = sheetLabel || '—';
+}
+
+/* --- حذف كل البيانات نهائيًا (من هذا الجهاز ومن Firebase) والبدء من صفحة فارغة تمامًا --- */
+async function resetAllData(){
+  const warn = 'تحذير نهائى لا يمكن التراجع عنه:\n\n' +
+    'سيتم حذف كل الشهور نهائيًا — بما فى ذلك الشهور الأربعة الأصلية المستوردة من ملف الإكسل — ' +
+    'وكل ما بداخلها (الإيرادات والتوزيع، المنصرف، التوريد والإيصالات، الدفاتر، توزيع الأشخاص) ' +
+    'من هذا الجهاز ومن قاعدة بيانات Firebase السحابية المشتركة بين كل الأجهزة.\n\n' +
+    'قائمة "الخدمات والأسعار" لن تتأثر وستبقى كما هى.\n\n' +
+    'هل أنت متأكد من المتابعة؟';
+  if(!confirm(warn)) return;
+  const typed = prompt('للتأكيد النهائى، اكتب كلمة "حذف" بالضبط ثم اضغط موافق:');
+  if(typed !== 'حذف'){ alert('لم تُنفَّذ عملية الحذف — الكلمة المكتوبة غير مطابقة.'); return; }
+
+  MONTHS = [];
+  currentMonthId = null;
+  openMonths = new Set();
+  logFilters = { morning:{}, evening:{} };
+  closeColumnFilterOverlay();
+  currentSheet = 'income_dist';
+
+  // نحفظ مصفوفة فارغة صراحةً (بدلًا من حذف المستند) حتى لا تُعاد زراعة الشهور الأصلية تلقائيًا عند إعادة التحميل
+  await storageSet(MONTHS_KEY, JSON.stringify([]));
+  await storageClear(OLD_PEOPLE_KEY);
+  await storageClear(OLD_MONTHS_KEY_V2);
+
+  renderSidebar();
+  renderSheet();
+  toastSaved('✔ تم حذف كل البيانات — يمكنك الآن البدء من جديد بالضغط على "➕ إضافة شهر جديد"');
 }
 
 function openServicesManager(){
