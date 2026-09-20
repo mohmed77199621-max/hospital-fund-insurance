@@ -251,6 +251,7 @@ input[type=number]{-moz-appearance:textfield}
 
     <button class="add-month-btn" onclick="addMonth()">➕ إضافة شهر جديد</button>
     <button class="add-month-btn" id="services-nav-btn" style="border-color:var(--al);background:rgba(193,120,23,.16)" onclick="openServicesManager()">⚙ إدارة الخدمات والأسعار</button>
+    <button class="add-month-btn" id="treasury-nav-btn" style="border-color:#2e7d32;background:rgba(46,125,50,.14)" onclick="openTreasurySheet()">🏦 إيرادات الخزنة</button>
 
     <div class="sidebar-footer">
       <button class="btn btn-a" style="width:100%;justify-content:center" onclick="window.print()">🖨 طباعة / معاينة الطباعة</button>
@@ -284,8 +285,13 @@ input[type=number]{-moz-appearance:textfield}
 {"periods": [{"id": "p1", "label": "سبتمبر واكتوبر 2024", "income": [["عيادة صباحى", 435000], ["عيادة مسائي", 337500], ["زيارة", 56100], ["اقتصادى صباحى", 1624530], ["اقتصادى مسائي", 1643817.35]], "expense": [["كيماويات المعمل", 36059.71], ["افلام اشعة", 291616.5], ["جيلى كلار", 3049.76], ["بكر رسم قلب", 5407.3], ["مستلزمات محاليل", 26173.27], ["شهداء", 9550], ["نسبة 80% قرار", 23408], ["اكياس الدم", 94035], ["تحاليل بنك الدم", 29560.65], ["مستلزمات اسنان", 19748.18], ["التعقيم", 107780.69], ["السموم", 6270], ["غسيل كلى", 1650], ["مطبوعات", 91830.98]], "pct15": true, "dist": [["50% للأطباء والعاملين بالمستشفى", 50], ["37% نفقات التشغيل المختلف بالمستشفى", 37], ["7% لدعم صندوق تحسين الخدمة بالمديرية", 7], ["2% لدعم صندوق تحسين بديوان عام وزارة الصحة والسكان", 2], ["2% لمديرية الشئون الصحية لدعم الدراسات العليا", 2], ["2% لدعم مشروعات بمراجعة قطاع الصحة والسكان", 2]]}, {"id": "p2", "label": "نوفمبر وديسمبر 2024", "income": [["عيادة صباحى", 872000], ["عيادة مسائي", 335000], ["زيارة", 56900], ["اقتصادى صباحى", 1866118], ["اقتصادى مسائي", 1450885]], "expense": [["كيماويات المعمل", 63782.7], ["افلام اشعة", 305707], ["مخزن مستلزمات", 5003.44], ["مستلزمات محاليل", 24515.34], ["شهداء", 8580], ["نسبة 80% قرار", 23392], ["اكياس الدم", 60460], ["تحاليل بنك الدم", 26460.95], ["مستلزمات اسنان", 17897.57], ["التعقيم", 143347.74], ["السموم", 3960], ["استرداد", 30704.3], ["منصرف عيادات", 33094.55], ["مطبوعات", 121604.74]], "pct15": true, "dist": [["50% للأطباء والعاملين بالمستشفى", 50], ["37% نفقات التشغيل المختلف بالمستشفى", 37], ["7% لدعم صندوق تحسين الخدمة بالمديرية", 7], ["2% لدعم صندوق تحسين بديوان عام وزارة الصحة والسكان", 2], ["2% لمديرية الشئون الصحية لدعم الدراسات العليا", 2], ["2% لدعم مشروعات بمراجعة قطاع الصحة والسكان", 2]]}, {"id": "p3", "label": "يناير وفبراير 2025", "income": [["عيادة صباحى", 841000], ["عيادة مسائي", 340000], ["زيارة", 55000], ["اقتصادى صباحى", 1475787], ["اقتصادى مسائي", 1328800]], "expense": [["كيماويات المعمل", 49144.71], ["افلام اشعة", 291240.9], ["مخزن مستلزمات", 6276.82], ["محاليل اطفال", 16996.05], ["شهداء", 6745], ["نسبة 80% قرار", 20960], ["اكياس الدم", 58125], ["تحاليل بنك الدم", 32955.94], ["مستلزمات اسنان", 14767.48], ["التعقيم", 138400.33], ["عيادة ايكو اطفال", 2526.57], ["العلاج الطبيعى", 3093.19], ["عيادة ايكو", 6619.27], ["الاشعة التلفيزيونية", 8402.65], ["السموم", 1650], ["استرداد", 29905], ["مطبوعات", 117220.56]], "pct15": true, "dist": [["50% للأطباء والعاملين بالمستشفى", 50], ["37% نفقات التشغيل المختلف بالمستشفى", 37], ["7% لدعم صندوق تحسين الخدمة بالمديرية", 7], ["2% لدعم صندوق تحسين بديوان عام وزارة الصحة والسكان", 2], ["2% لمديرية الشئون الصحية لدعم الدراسات العليا", 2], ["2% لدعم مشروعات بمراجعة قطاع الصحة والسكان", 2]]}, {"id": "p4", "label": "يناير 2026", "income": [["عيادة صباحى", 444000], ["عيادة مسائي", 225000], ["زيارة", 35400], ["اقتصادى صباحى", 919929], ["اقتصادى مسائي", 1101484], ["ايرادات محولة من 33.ع ح", 0]], "expense": [["كيماويات المعمل", 35594.38], ["افلام اشعة", 248260.15], ["محاليل اطفال", 19614.99], ["التعقيم", 61680.51], ["الاسنان", 9466.48], ["مخزن المستلزمات", 3414.92], ["المطبوعات", 64757.94], ["عيادة ايكو اطفال", 1876.09], ["العلاج الطبيعى", 1785], ["عيادة الايكو ورسم العصب", 4202.68], ["الاشعة التلفيزيونية", 1049.94], ["تحاليل بنك دم", 19147.94], ["نسبة 80% قرار", 11656], ["شهداء", 107470], ["السموم", 220], ["اكياس دم", 0], ["غسيل", 0], ["استرداد", 17483]], "pct15": false, "dist": [["50% للأطباء والعاملين بالمستشفى", 50], ["37% نفقات التشغيل المختلف بالمستشفى", 37], ["7% لدعم صندوق تحسين الخدمة بالمديرية", 7], ["2% لدعم صندوق تحسين بديوان عام وزارة الصحة والسكان", 2], ["2% لمديرية الشئون الصحية لدعم الدراسات العليا", 2], ["2% لدعم مشروعات بمراجعة قطاع الصحة والسكان", 2]]}], "supply_p4": [["اشعة عادية", 154600, 167470, 3180, 3063], ["اشعة تليفزيونية", 59475, 70120, 634, 781], ["اشعة مقطعية", 78987, 260435, 298, 974], ["اشعة حج", 9860, 1595, 68, 11], ["رنين", 81625, 51650, 142, 93], ["معمل", 144390, 159010, 2025, 1425], ["معمل حج", 13600, 2200, 68, 11], ["كيس دم", 3380, 24530, 12, 83], ["تحاليل بنك دم", 1115, 11355, 16, 126], ["اشعة ايكو", 28000, 3600, 140, 18], ["ايكو حج", 13600, 2200, 68, 11], ["خدمات حج", 44540, 7205, 68, 11], ["ايكو اطفال", 9020, 1000, 36, 4], ["غيار حروق", 75, 0, 3, 0], ["كشك عظام", 18932, 68670, 414, 1014], ["جراحة", 12265, 21325, 426, 384], ["استقبال اطفال", 10725, 56275, 143, 751], ["استقبال كبار", 6775, 25415, 271, 1049], ["رسم قلب", 5850, 0, 234, 0], ["سمعيات", 12420, 780, 95, 6], ["تخاطب", 565, 0, 19, 0], ["اسنان", 31130, 1450, 391, 21], ["انف واذن", 5010, 170, 150, 5], ["مسالك", 450, 90, 10, 2], ["جلدية/فوق البنفسجية", 4340, 75, 69, 3], ["رسم عصب", 0, 0, 0, 0], ["علاج طبيعي", 25750, 950, 284, 14], ["رسم كشف", 5400, 360, 135, 9], ["خطاب", 14775, 4125, 591, 165], ["شهداء", 55415, 52055, 11083, 10411], ["رباعية الابعاد", 2280, 4180, 6, 11], ["اشعة نسا", 6800, 400, 170, 10], ["عمليات", 28445, 88789, 60, 88], ["جهاز C.arm", 600, 300, 2, 1], ["سموم", 220, 0, 2, 0], ["قرارات", 12020, 2550, 1202, 255], ["إيجار بوفية", 0, 0, 0, 0], ["مرافق", 0, 4235, 0, 121], ["نيابة", 17495, 5770, 24, 8], ["غسيل كلى", 0, 0, 0, 0], ["عنايات", 0, 1100, 0, 2], ["تأمين", 0, 0, 0, 0]], "daftar_p4": [["عيادة صباحى", 444, 106], ["عيادة مسائي", 45, 115], ["زيارة مريض", 17.7, 54], ["دفتر 33/40", 0, 44], ["دفتر 33/80", 13, 54], ["دفتر 37", 2, 44], ["دفتر 19/د", 21986, 0.49]], "dept_p4": [["المعمل", 36423.56], ["الاشعة", 126629.25], ["محاليل اطفال", 281.82], ["التعقيم", 92565.61], ["الاسنان", 10562.34], ["مخزن المستلزمات", 3909.23], ["المطبوعات", 64757.94], ["عيادة ايكو اطفال", 2312.984], ["العلاج الطبيعى", 2352.37], ["رسم العصب", 425.66], ["عيادة الايكو", 2669.9], ["الاشعة التلفزيونية", 2918.73], ["تحاليل بنك دم", 14407.2]]}
 </script>
 
+<script id="treasury-seed-json" type="application/json">
+[{"m": "491", "period": "المسائية", "from": "2025-12-31", "to": "2026-01-03", "group": "", "receiptNo": "276399", "clinics": 30000, "visit": 0, "econ": 146136, "deficit": 0, "martyrs": 6780, "companion": 0, "decisions": 0, "bankRef": "1", "bankDate": "2026-01-04", "notes": ""}, {"m": "492", "period": "الصباحية", "from": "2026-01-01", "to": "2026-01-01", "group": "", "receiptNo": "276400", "clinics": 55000, "visit": 4350, "econ": 111215, "deficit": 0, "martyrs": 5515, "companion": 0, "decisions": 900, "bankRef": "2", "bankDate": "2026-01-04", "notes": ""}, {"m": "", "period": "المسائية", "from": "2026-01-04", "to": "2026-01-04", "group": "", "receiptNo": "276451", "clinics": 10000, "visit": 0, "econ": 30525, "deficit": 0, "martyrs": 1420, "companion": 0, "decisions": 0, "bankRef": "3", "bankDate": "2026-01-05", "notes": ""}, {"m": "3", "period": "الصباحية", "from": "2026-01-05", "to": "2026-01-05", "group": "", "receiptNo": "276452", "clinics": 22000, "visit": 850, "econ": 35280, "deficit": 0, "martyrs": 1995, "companion": 0, "decisions": 380, "bankRef": "2", "bankDate": "2026-01-05", "notes": ""}, {"m": "4", "period": "المسائية", "from": "2026-01-05", "to": "2026-01-05", "group": "", "receiptNo": "276453", "clinics": 5000, "visit": 0, "econ": 38685, "deficit": 0, "martyrs": 1800, "companion": 0, "decisions": 0, "bankRef": "1", "bankDate": "2026-01-06", "notes": ""}, {"m": "5", "period": "الصباحية", "from": "2026-01-06", "to": "2026-01-06", "group": "", "receiptNo": "276454", "clinics": 18000, "visit": 1000, "econ": 50120, "deficit": 0, "martyrs": 3000, "companion": 0, "decisions": 660, "bankRef": "2", "bankDate": "2026-01-06", "notes": ""}, {"m": "6", "period": "المسائية", "from": "2026-01-06", "to": "2026-01-07", "group": "", "receiptNo": "276455", "clinics": 20000, "visit": 0, "econ": 70890, "deficit": 0, "martyrs": 3435, "companion": 0, "decisions": 0, "bankRef": "3", "bankDate": "2026-01-08", "notes": ""}, {"m": "7", "period": "الصباحية", "from": "2026-01-07", "to": "2026-01-08", "group": "", "receiptNo": "276456", "clinics": 21000, "visit": 3350, "econ": 39870, "deficit": 0, "martyrs": 3000, "companion": 0, "decisions": 580, "bankRef": "2", "bankDate": "2026-01-08", "notes": ""}, {"m": "8", "period": "المسائية", "from": "2026-01-08", "to": "2026-01-10", "group": "", "receiptNo": "276457", "clinics": 25000, "visit": 0, "econ": 116115, "deficit": 0, "martyrs": 5435, "companion": 0, "decisions": 0, "bankRef": "1", "bankDate": "2026-01-11", "notes": ""}, {"m": "9", "period": "الصباحية", "from": "2026-01-09", "to": "2026-01-11", "group": "", "receiptNo": "276458", "clinics": 42000, "visit": 3700, "econ": 73250, "deficit": 0, "martyrs": 4995, "companion": 0, "decisions": 1310, "bankRef": "2", "bankDate": "2026-01-11", "notes": ""}, {"m": "10", "period": "المسائية", "from": "2026-01-11", "to": "2026-01-11", "group": "", "receiptNo": "276459", "clinics": 5000, "visit": 0, "econ": 26810, "deficit": 0, "martyrs": 1520, "companion": 0, "decisions": 0, "bankRef": "3", "bankDate": "2026-01-12", "notes": ""}, {"m": "11", "period": "الصباحية", "from": "2026-01-12", "to": "2026-01-12", "group": "", "receiptNo": "276460", "clinics": 21000, "visit": 1250, "econ": 30890, "deficit": 0, "martyrs": 2000, "companion": 0, "decisions": 530, "bankRef": "2", "bankDate": "2026-01-12", "notes": ""}, {"m": "12", "period": "المسائية", "from": "2026-01-12", "to": "2026-01-12", "group": "", "receiptNo": "276461", "clinics": 5000, "visit": 0, "econ": 26470, "deficit": 0, "martyrs": 1460, "companion": 0, "decisions": 0, "bankRef": "2", "bankDate": "2026-01-13", "notes": ""}, {"m": "13", "period": "الصباحية", "from": "2026-01-13", "to": "2026-01-13", "group": "", "receiptNo": "276462", "clinics": 20000, "visit": 1800, "econ": 32695, "deficit": 0, "martyrs": 1990, "companion": 0, "decisions": 440, "bankRef": "3", "bankDate": "2026-01-13", "notes": ""}, {"m": "14", "period": "المسائية", "from": "2026-01-13", "to": "2026-01-13", "group": "", "receiptNo": "276463", "clinics": 5000, "visit": 0, "econ": 37575, "deficit": 0, "martyrs": 1675, "companion": 0, "decisions": 0, "bankRef": "6", "bankDate": "2026-01-14", "notes": ""}, {"m": "15", "period": "الصباحية", "from": "2026-01-14", "to": "2026-01-14", "group": "", "receiptNo": "276464", "clinics": 19000, "visit": 1400, "econ": 51960, "deficit": 0, "martyrs": 3980, "companion": 0, "decisions": 850, "bankRef": "5", "bankDate": "2026-01-14", "notes": ""}, {"m": "16", "period": "المسائية", "from": "2026-01-14", "to": "2026-01-14", "group": "", "receiptNo": "276465", "clinics": 10000, "visit": 0, "econ": 25330, "deficit": 0, "martyrs": 1560, "companion": 0, "decisions": 0, "bankRef": "3", "bankDate": "2026-01-15", "notes": ""}, {"m": "17", "period": "الصباحية", "from": "2026-01-15", "to": "2026-01-15", "group": "", "receiptNo": "276466", "clinics": 19000, "visit": 800, "econ": 32472, "deficit": 0, "martyrs": 1995, "companion": 0, "decisions": 420, "bankRef": "4", "bankDate": "2026-01-15", "notes": ""}, {"m": "18", "period": "المسائية", "from": "2026-01-15", "to": "2026-01-17", "group": "", "receiptNo": "276467", "clinics": 20000, "visit": 0, "econ": 90285, "deficit": 0, "martyrs": 4330, "companion": 0, "decisions": 0, "bankRef": "6", "bankDate": "2026-01-18", "notes": ""}, {"m": "19", "period": "الصباحية", "from": "2026-01-16", "to": "2026-01-18", "group": "", "receiptNo": "276468", "clinics": 41000, "visit": 4000, "econ": 82355, "deficit": 0, "martyrs": 5500, "companion": 0, "decisions": 1220, "bankRef": "5", "bankDate": "2026-01-18", "notes": ""}, {"m": "20", "period": "المسائية", "from": "2026-01-18", "to": "2026-01-18", "group": "", "receiptNo": "276469", "clinics": 5000, "visit": 0, "econ": 34575, "deficit": 0, "martyrs": 1725, "companion": 0, "decisions": 0, "bankRef": "", "bankDate": "2026-01-19", "notes": ""}, {"m": "21", "period": "الصباحية", "from": "2026-01-19", "to": "2026-01-19", "group": "", "receiptNo": "276470", "clinics": 22000, "visit": 1400, "econ": 33785, "deficit": 0, "martyrs": 2500, "companion": 0, "decisions": 490, "bankRef": "", "bankDate": "2026-01-19", "notes": ""}, {"m": "", "period": "المسائية", "from": "2026-01-19", "to": "2026-01-19", "group": "", "receiptNo": "276471", "clinics": 5000, "visit": 0, "econ": 30095, "deficit": 0, "martyrs": 1555, "companion": 0, "decisions": 0, "bankRef": "1", "bankDate": "2026-01-20", "notes": ""}, {"m": "", "period": "الصباحية", "from": "2026-01-20", "to": "2026-01-20", "group": "", "receiptNo": "276472", "clinics": 18000, "visit": 1100, "econ": 27120, "deficit": 0, "martyrs": 1995, "companion": 0, "decisions": 470, "bankRef": "2", "bankDate": "2026-01-20", "notes": ""}, {"m": "", "period": "المسائية", "from": "2026-01-20", "to": "2026-01-20", "group": "", "receiptNo": "276473", "clinics": 5000, "visit": 0, "econ": 30450, "deficit": 0, "martyrs": 1700, "companion": 0, "decisions": 0, "bankRef": "", "bankDate": "2026-01-21", "notes": ""}, {"m": "", "period": "الصباحية", "from": "2026-01-21", "to": "2026-01-21", "group": "", "receiptNo": "276474", "clinics": 18000, "visit": 1350, "econ": 51275, "deficit": 0, "martyrs": 2990, "companion": 0, "decisions": 460, "bankRef": "", "bankDate": "2026-01-21", "notes": ""}, {"m": "", "period": "المسائية", "from": "2026-01-21", "to": "2026-01-21", "group": "", "receiptNo": "276475", "clinics": 10000, "visit": 0, "econ": 29365, "deficit": 0, "martyrs": 1550, "companion": 0, "decisions": 0, "bankRef": "9", "bankDate": "2026-01-22", "notes": ""}, {"m": "", "period": "الصباحية", "from": "2026-01-22", "to": "2026-01-22", "group": "", "receiptNo": "276476", "clinics": 16000, "visit": 1000, "econ": 43515, "deficit": 0, "martyrs": 2990, "companion": 0, "decisions": 870, "bankRef": "8", "bankDate": "2026-01-22", "notes": ""}, {"m": "", "period": "المسائية", "from": "2026-01-22", "to": "2026-01-24", "group": "", "receiptNo": "276477", "clinics": 20000, "visit": 0, "econ": 101475, "deficit": 0, "martyrs": 5215, "companion": 0, "decisions": 0, "bankRef": "2", "bankDate": "2026-01-25", "notes": ""}, {"m": "", "period": "الصباحية", "from": "2026-01-23", "to": "2026-01-25", "group": "", "receiptNo": "276478", "clinics": 38000, "visit": 3800, "econ": 58575, "deficit": 0, "martyrs": 3990, "companion": 0, "decisions": 600, "bankRef": "1", "bankDate": "2026-01-25", "notes": ""}, {"m": "", "period": "المسائية", "from": "2026-01-25", "to": "2026-01-26", "group": "", "receiptNo": "276479", "clinics": 5000, "visit": 0, "econ": 34878, "deficit": 0, "martyrs": 1780, "companion": 0, "decisions": 0, "bankRef": "6", "bankDate": "2026-01-26", "notes": ""}, {"m": "", "period": "الصباحية", "from": "2026-01-26", "to": "2026-01-26", "group": "", "receiptNo": "276480", "clinics": 19000, "visit": 1050, "econ": 26500, "deficit": 0, "martyrs": 1995, "companion": 0, "decisions": 440, "bankRef": "5", "bankDate": "2026-01-26", "notes": ""}, {"m": "", "period": "المسائية", "from": "2026-01-26", "to": "2026-01-26", "group": "", "receiptNo": "276481", "clinics": 10000, "visit": 0, "econ": 32135, "deficit": 0, "martyrs": 1560, "companion": 0, "decisions": 0, "bankRef": "1", "bankDate": "2026-01-27", "notes": ""}, {"m": "", "period": "الصباحية", "from": "2026-01-27", "to": "2026-01-27", "group": "", "receiptNo": "276482", "clinics": 16000, "visit": 1600, "econ": 47057, "deficit": 0, "martyrs": 2995, "companion": 0, "decisions": 870, "bankRef": "2", "bankDate": "2026-01-27", "notes": ""}, {"m": "", "period": "المسائية", "from": "2026-01-28", "to": "2026-01-28", "group": "", "receiptNo": "276483", "clinics": 5000, "visit": 0, "econ": 23625, "deficit": 0, "martyrs": 1540, "companion": 0, "decisions": 0, "bankRef": "3", "bankDate": "2026-01-28", "notes": ""}, {"m": "", "period": "الصباحية", "from": "2026-01-28", "to": "2026-01-28", "group": "", "receiptNo": "276484", "clinics": 19000, "visit": 1600, "econ": 24555, "deficit": 0, "martyrs": 1995, "companion": 0, "decisions": 530, "bankRef": "4", "bankDate": "2026-01-28", "notes": ""}, {"m": "", "period": "المسائية", "from": "2026-01-28", "to": "2026-01-31", "group": "", "receiptNo": "276485", "clinics": 25000, "visit": 0, "econ": 123990, "deficit": 0, "martyrs": 6035, "companion": 0, "decisions": 0, "bankRef": "15", "bankDate": "2026-02-01", "notes": ""}, {"m": "", "period": "الصباحية", "from": "2026-01-29", "to": "2026-02-01", "group": "", "receiptNo": "276486", "clinics": 35000, "visit": 3200, "econ": 65780, "deficit": 0, "martyrs": 4990, "companion": 0, "decisions": 1400, "bankRef": "14", "bankDate": "2026-02-01", "notes": ""}, {"m": "", "period": "المسائية", "from": "2026-02-01", "to": "2026-02-01", "group": "", "receiptNo": "276487", "clinics": 5000, "visit": 0, "econ": 35960, "deficit": 0, "martyrs": 1560, "companion": 0, "decisions": 0, "bankRef": "1", "bankDate": "2026-02-02", "notes": ""}, {"m": "", "period": "الصباحية", "from": "2026-02-02", "to": "2026-02-02", "group": "", "receiptNo": "276488", "clinics": 19000, "visit": 1050, "econ": 48995, "deficit": 0, "martyrs": 3000, "companion": 0, "decisions": 640, "bankRef": "2", "bankDate": "2026-02-02", "notes": ""}, {"m": "", "period": "المسائية", "from": "2026-02-02", "to": "2026-02-02", "group": "", "receiptNo": "276489", "clinics": 10000, "visit": 0, "econ": 31840, "deficit": 0, "martyrs": 1495, "companion": 0, "decisions": 0, "bankRef": "2", "bankDate": "2026-02-03", "notes": ""}, {"m": "", "period": "الصباحية", "from": "2026-02-03", "to": "2026-02-03", "group": "", "receiptNo": "276490", "clinics": 20000, "visit": 1150, "econ": 30640, "deficit": 0, "martyrs": 380, "companion": 0, "decisions": 2000, "bankRef": "1", "bankDate": "2026-02-03", "notes": ""}, {"m": "", "period": "المسائية", "from": "2026-02-03", "to": "2026-02-03", "group": "", "receiptNo": "276491", "clinics": 5000, "visit": 0, "econ": 34785, "deficit": 0, "martyrs": 1660, "companion": 0, "decisions": 0, "bankRef": "2", "bankDate": "2026-02-04", "notes": ""}, {"m": "", "period": "الصباحية", "from": "2026-02-04", "to": "2026-02-04", "group": "", "receiptNo": "276492", "clinics": 18000, "visit": 1000, "econ": 28250, "deficit": 0, "martyrs": 2000, "companion": 0, "decisions": 480, "bankRef": "1", "bankDate": "2026-02-04", "notes": ""}, {"m": "", "period": "المسائية", "from": "2026-02-04", "to": "2026-02-04", "group": "", "receiptNo": "276493", "clinics": 5000, "visit": 0, "econ": 29885, "deficit": 0, "martyrs": 1680, "companion": 0, "decisions": 0, "bankRef": "8", "bankDate": "2026-02-05", "notes": ""}, {"m": "", "period": "الصباحية", "from": "2026-02-05", "to": "2026-02-05", "group": "", "receiptNo": "276494", "clinics": 18000, "visit": 1000, "econ": 31265, "deficit": 0, "martyrs": 2000, "companion": 0, "decisions": 340, "bankRef": "7", "bankDate": "2026-02-05", "notes": ""}, {"m": "", "period": "المسائية", "from": "2026-02-05", "to": "2026-02-07", "group": "", "receiptNo": "276495", "clinics": 10000, "visit": 0, "econ": 100575, "deficit": 0, "martyrs": 5315, "companion": 0, "decisions": 0, "bankRef": "10", "bankDate": "2026-02-08", "notes": ""}, {"m": "", "period": "الصباحية", "from": "2026-02-05", "to": "2026-02-07", "group": "", "receiptNo": "276496", "clinics": 36000, "visit": 3460, "econ": 83373, "deficit": 0, "martyrs": 4970, "companion": 0, "decisions": 820, "bankRef": "9", "bankDate": "2026-02-08", "notes": ""}, {"m": "", "period": "المسائية", "from": "2026-02-08", "to": "2026-02-08", "group": "", "receiptNo": "276497", "clinics": 10000, "visit": 0, "econ": 30715, "deficit": 0, "martyrs": 1520, "companion": 0, "decisions": 0, "bankRef": "1", "bankDate": "2026-02-09", "notes": ""}, {"m": "", "period": "الصباحية", "from": "2026-02-09", "to": "2026-02-09", "group": "", "receiptNo": "276498", "clinics": 19000, "visit": 1170, "econ": 55055, "deficit": 0, "martyrs": 2990, "companion": 0, "decisions": 630, "bankRef": "2", "bankDate": "2026-02-09", "notes": ""}, {"m": "", "period": "المسائية", "from": "2026-02-09", "to": "2026-02-09", "group": "", "receiptNo": "276499", "clinics": 10000, "visit": 0, "econ": 35235, "deficit": 0, "martyrs": 1620, "companion": 0, "decisions": 0, "bankRef": "2", "bankDate": "2026-02-10", "notes": ""}, {"m": "", "period": "الصباحية", "from": "2026-02-10", "to": "2026-02-10", "group": "", "receiptNo": "276500", "clinics": 16000, "visit": 870, "econ": 36210, "deficit": 0, "martyrs": 1960, "companion": 0, "decisions": 350, "bankRef": "1", "bankDate": "2026-02-10", "notes": ""}, {"m": "", "period": "المسائية", "from": "2026-02-10", "to": "2026-02-10", "group": "", "receiptNo": "276001", "clinics": 10000, "visit": 0, "econ": 40525, "deficit": 0, "martyrs": 1800, "companion": 0, "decisions": 0, "bankRef": "3", "bankDate": "2026-02-11", "notes": ""}, {"m": "", "period": "الصباحية", "from": "2026-02-11", "to": "2026-02-11", "group": "", "receiptNo": "276002", "clinics": 22000, "visit": 1500, "econ": 28945, "deficit": 0, "martyrs": 1990, "companion": 0, "decisions": 420, "bankRef": "2", "bankDate": "2026-02-11", "notes": ""}, {"m": "", "period": "المسائية", "from": "2026-02-11", "to": "2026-02-11", "group": "", "receiptNo": "276003", "clinics": 10000, "visit": 0, "econ": 36955, "deficit": 0, "martyrs": 1715, "companion": 0, "decisions": 0, "bankRef": "5", "bankDate": "2026-02-12", "notes": ""}, {"m": "", "period": "الصباحية", "from": "2026-02-12", "to": "2026-02-12", "group": "", "receiptNo": "276004", "clinics": 19000, "visit": 800, "econ": 43635, "deficit": 0, "martyrs": 2985, "companion": 0, "decisions": 700, "bankRef": "6", "bankDate": "2026-02-12", "notes": ""}, {"m": "", "period": "المسائية", "from": "2026-02-12", "to": "2026-02-14", "group": "", "receiptNo": "276005", "clinics": 20000, "visit": 0, "econ": 96631, "deficit": 0, "martyrs": 4300, "companion": 0, "decisions": 0, "bankRef": "5", "bankDate": "2026-02-15", "notes": ""}, {"m": "", "period": "الصباحية", "from": "2026-02-13", "to": "2026-02-15", "group": "", "receiptNo": "276006", "clinics": 38000, "visit": 3500, "econ": 60590, "deficit": 0, "martyrs": 3995, "companion": 0, "decisions": 850, "bankRef": "6", "bankDate": "2026-02-15", "notes": ""}, {"m": "", "period": "المسائية", "from": "2026-02-15", "to": "2026-02-15", "group": "", "receiptNo": "276008", "clinics": 5000, "visit": 0, "econ": 51400, "deficit": 0, "martyrs": 1100, "companion": 0, "decisions": 0, "bankRef": "3", "bankDate": "2026-02-16", "notes": ""}, {"m": "", "period": "الصباحية", "from": "2026-02-16", "to": "2026-02-16", "group": "", "receiptNo": "276009", "clinics": 21000, "visit": 1350, "econ": 26040, "deficit": 0, "martyrs": 1965, "companion": 0, "decisions": 520, "bankRef": "2", "bankDate": "2026-02-16", "notes": ""}, {"m": "", "period": "المسائية", "from": "2026-02-16", "to": "2026-02-16", "group": "", "receiptNo": "276010", "clinics": 10000, "visit": 0, "econ": 30780, "deficit": 0, "martyrs": 1120, "companion": 0, "decisions": 0, "bankRef": "2", "bankDate": "2026-02-17", "notes": ""}, {"m": "", "period": "الصباحية", "from": "2026-02-17", "to": "2026-02-17", "group": "", "receiptNo": "276011", "clinics": 21000, "visit": 1200, "econ": 28730, "deficit": 0, "martyrs": 1975, "companion": 0, "decisions": 510, "bankRef": "3", "bankDate": "2026-02-17", "notes": ""}, {"m": "", "period": "المسائية", "from": "2026-02-17", "to": "2026-02-17", "group": "", "receiptNo": "276012", "clinics": 5000, "visit": 0, "econ": 24095, "deficit": 0, "martyrs": 1060, "companion": 0, "decisions": 0, "bankRef": "4", "bankDate": "2026-02-18", "notes": ""}, {"m": "", "period": "الصباحية", "from": "2026-02-18", "to": "2026-02-18", "group": "", "receiptNo": "276013", "clinics": 18000, "visit": 1150, "econ": 31922, "deficit": 0, "martyrs": 1995, "companion": 0, "decisions": 610, "bankRef": "5", "bankDate": "2026-02-18", "notes": ""}, {"m": "", "period": "المسائية", "from": "2026-02-18", "to": "2026-02-18", "group": "", "receiptNo": "276014", "clinics": 5000, "visit": 0, "econ": 20205, "deficit": 0, "martyrs": 840, "companion": 0, "decisions": 0, "bankRef": "6", "bankDate": "2026-02-19", "notes": ""}, {"m": "", "period": "الصباحية", "from": "2026-02-19", "to": "2026-02-19", "group": "", "receiptNo": "276015", "clinics": 18000, "visit": 1400, "econ": 34365, "deficit": 0, "martyrs": 1995, "companion": 0, "decisions": 590, "bankRef": "5", "bankDate": "2026-02-19", "notes": ""}, {"m": "", "period": "المسائية", "from": "2026-02-19", "to": "2026-02-21", "group": "", "receiptNo": "276016", "clinics": 15000, "visit": 0, "econ": 62725, "deficit": 0, "martyrs": 2460, "companion": 0, "decisions": 0, "bankRef": "1", "bankDate": "2026-02-22", "notes": ""}, {"m": "", "period": "الصباحية", "from": "2026-02-20", "to": "2026-02-22", "group": "", "receiptNo": "276017", "clinics": 37350, "visit": 3450, "econ": 29100, "deficit": 0, "martyrs": 1990, "companion": 0, "decisions": 510, "bankRef": "2", "bankDate": "2026-02-22", "notes": ""}, {"m": "", "period": "المسائية", "from": "2026-02-22", "to": "2026-02-22", "group": "", "receiptNo": "276018", "clinics": 5000, "visit": 0, "econ": 21950, "deficit": 0, "martyrs": 820, "companion": 0, "decisions": 0, "bankRef": "2", "bankDate": "2026-02-23", "notes": ""}, {"m": "", "period": "الصباحية", "from": "2026-02-23", "to": "2026-02-23", "group": "", "receiptNo": "276019", "clinics": 14650, "visit": 700, "econ": 35195, "deficit": 0, "martyrs": 1655, "companion": 0, "decisions": 430, "bankRef": "1", "bankDate": "2026-02-23", "notes": ""}, {"m": "", "period": "المسائية", "from": "2026-02-23", "to": "2026-02-23", "group": "", "receiptNo": "276020", "clinics": 5000, "visit": 0, "econ": 25070, "deficit": 0, "martyrs": 880, "companion": 0, "decisions": 0, "bankRef": "2", "bankDate": "2026-02-24", "notes": ""}, {"m": "", "period": "الصباحية", "from": "2026-02-24", "to": "2026-02-24", "group": "", "receiptNo": "276021", "clinics": 17000, "visit": 650, "econ": 8540, "deficit": 0, "martyrs": 640, "companion": 0, "decisions": 310, "bankRef": "1", "bankDate": "2026-02-24", "notes": ""}, {"m": "", "period": "المسائية", "from": "2026-02-24", "to": "2026-02-24", "group": "", "receiptNo": "276022", "clinics": 5000, "visit": 0, "econ": 18850, "deficit": 0, "martyrs": 740, "companion": 0, "decisions": 0, "bankRef": "2", "bankDate": "2026-02-25", "notes": ""}, {"m": "", "period": "الصباحية", "from": "2026-02-25", "to": "2026-02-25", "group": "", "receiptNo": "276023", "clinics": 17000, "visit": 600, "econ": 22920, "deficit": 0, "martyrs": 1690, "companion": 0, "decisions": 560, "bankRef": "3", "bankDate": "2026-02-25", "notes": ""}, {"m": "", "period": "المسائية", "from": "2026-02-25", "to": "2026-02-25", "group": "", "receiptNo": "276024", "clinics": 5000, "visit": 0, "econ": 16655, "deficit": 0, "martyrs": 660, "companion": 0, "decisions": 0, "bankRef": "3", "bankDate": "2026-02-26", "notes": ""}, {"m": "", "period": "الصباحية", "from": "2026-02-26", "to": "2026-02-26", "group": "", "receiptNo": "276025", "clinics": 16000, "visit": 800, "econ": 42610, "deficit": 0, "martyrs": 2200, "companion": 0, "decisions": 570, "bankRef": "4", "bankDate": "2026-02-26", "notes": ""}, {"m": "", "period": "المسائية", "from": "2026-02-26", "to": "2026-02-28", "group": "", "receiptNo": "276026", "clinics": 15000, "visit": 0, "econ": 73345, "deficit": 0, "martyrs": 2600, "companion": 0, "decisions": 0, "bankRef": "3", "bankDate": "2026-03-01", "notes": ""}, {"m": "", "period": "الصباحية", "from": "2026-02-27", "to": "2026-03-01", "group": "", "receiptNo": "276027", "clinics": 37000, "visit": 1400, "econ": 42220, "deficit": 0, "martyrs": 2790, "companion": 0, "decisions": 770, "bankRef": "2", "bankDate": "2026-03-01", "notes": ""}, {"m": "", "period": "المسائية", "from": "2026-03-01", "to": "2026-03-01", "group": "", "receiptNo": "276028", "clinics": 5000, "visit": 0, "econ": 24195, "deficit": 0, "martyrs": 895, "companion": 0, "decisions": 0, "bankRef": "1", "bankDate": "2026-03-02", "notes": ""}, {"m": "", "period": "الصباحية", "from": "2026-03-02", "to": "2026-03-02", "group": "", "receiptNo": "276029", "clinics": 15000, "visit": 500, "econ": 25020, "deficit": 0, "martyrs": 1410, "companion": 0, "decisions": 410, "bankRef": "2", "bankDate": "2026-03-02", "notes": ""}, {"m": "", "period": "المسائية", "from": "2026-03-02", "to": "2026-03-02", "group": "", "receiptNo": "276030", "clinics": 5000, "visit": 0, "econ": 16855, "deficit": 0, "martyrs": 780, "companion": 0, "decisions": 0, "bankRef": "2", "bankDate": "2026-03-03", "notes": ""}, {"m": "", "period": "الصباحية", "from": "2026-03-03", "to": "2026-03-03", "group": "", "receiptNo": "276031", "clinics": 20000, "visit": 650, "econ": 16390, "deficit": 0, "martyrs": 1330, "companion": 0, "decisions": 480, "bankRef": "1", "bankDate": "2026-03-03", "notes": ""}, {"m": "", "period": "المسائية", "from": "2026-03-03", "to": "2026-03-03", "group": "", "receiptNo": "276032", "clinics": 5000, "visit": 0, "econ": 18180, "deficit": 0, "martyrs": 680, "companion": 0, "decisions": 0, "bankRef": "1", "bankDate": "2026-03-04", "notes": ""}, {"m": "", "period": "الصباحية", "from": "2026-03-04", "to": "2026-03-04", "group": "", "receiptNo": "276033", "clinics": 14000, "visit": 550, "econ": 23280, "deficit": 0, "martyrs": 1520, "companion": 0, "decisions": 440, "bankRef": "2", "bankDate": "2026-03-04", "notes": ""}, {"m": "", "period": "المسائية", "from": "2026-03-04", "to": "2026-03-04", "group": "", "receiptNo": "276034", "clinics": 5000, "visit": 0, "econ": 20225, "deficit": 0, "martyrs": 760, "companion": 0, "decisions": 0, "bankRef": "5", "bankDate": "2026-03-05", "notes": ""}, {"m": "", "period": "الصباحية", "from": "2026-03-05", "to": "2026-03-05", "group": "", "receiptNo": "276035", "clinics": 19000, "visit": 700, "econ": 27925, "deficit": 0, "martyrs": 1420, "companion": 0, "decisions": 430, "bankRef": "4", "bankDate": "2026-05-03", "notes": ""}, {"m": "", "period": "المسائية", "from": "2026-03-05", "to": "2026-03-07", "group": "", "receiptNo": "276036", "clinics": 20000, "visit": 0, "econ": 95885, "deficit": 0, "martyrs": 4600, "companion": 0, "decisions": 0, "bankRef": "2", "bankDate": "2026-08-03", "notes": ""}, {"m": "", "period": "الصباحية", "from": "2026-03-06", "to": "2026-03-08", "group": "", "receiptNo": "276037", "clinics": 38000, "visit": 2150, "econ": 48870.5, "deficit": 0, "martyrs": 3690, "companion": 0, "decisions": 820, "bankRef": "3", "bankDate": "2026-08-03", "notes": ""}, {"m": "", "period": "المسائية", "from": "2026-03-08", "to": "2026-03-08", "group": "", "receiptNo": "276038", "clinics": 10000, "visit": 0, "econ": 51822, "deficit": 0, "martyrs": 1580, "companion": 0, "decisions": 0, "bankRef": "6", "bankDate": "2026-09-03", "notes": ""}, {"m": "", "period": "الصباحية", "from": "2026-03-09", "to": "2026-03-09", "group": "", "receiptNo": "276039", "clinics": 17000, "visit": 710, "econ": 36425, "deficit": 0, "martyrs": 2180, "companion": 0, "decisions": 400, "bankRef": "7", "bankDate": "2026-09-03", "notes": ""}, {"m": "", "period": "المسائية", "from": "2026-03-09", "to": "2026-03-09", "group": "", "receiptNo": "276040", "clinics": 5000, "visit": 0, "econ": 20615, "deficit": 0, "martyrs": 1000, "companion": 0, "decisions": 0, "bankRef": "1", "bankDate": "2026-10-03", "notes": ""}, {"m": "", "period": "الصباحية", "from": "2026-03-10", "to": "2026-03-10", "group": "", "receiptNo": "276041", "clinics": 19000, "visit": 1050, "econ": 20249, "deficit": 0, "martyrs": 1410, "companion": 0, "decisions": 280, "bankRef": "2", "bankDate": "2026-10-03", "notes": ""}, {"m": "", "period": "المسائية", "from": "2026-03-10", "to": "2026-03-10", "group": "", "receiptNo": "276042", "clinics": 5000, "visit": 0, "econ": 28190, "deficit": 0, "martyrs": 1200, "companion": 0, "decisions": 0, "bankRef": "2", "bankDate": "2026-11-03", "notes": ""}, {"m": "", "period": "الصباحية", "from": "2026-03-11", "to": "2026-03-11", "group": "", "receiptNo": "276043", "clinics": 16000, "visit": 850, "econ": 31635, "deficit": 0, "martyrs": 1995, "companion": 0, "decisions": 430, "bankRef": "1", "bankDate": "2026-11-03", "notes": ""}, {"m": "", "period": "المسائية", "from": "2026-03-11", "to": "2026-03-11", "group": "", "receiptNo": "276044", "clinics": 5000, "visit": 0, "econ": 21700, "deficit": 0, "martyrs": 1220, "companion": 0, "decisions": 0, "bankRef": "6", "bankDate": "2026-12-03", "notes": ""}, {"m": "", "period": "الصباحية", "from": "2026-03-12", "to": "2026-03-12", "group": "", "receiptNo": "276045", "clinics": 16000, "visit": 540, "econ": 42775, "deficit": 0, "martyrs": 3000, "companion": 0, "decisions": 470, "bankRef": "7", "bankDate": "2026-12-03", "notes": ""}, {"m": "", "period": "المسائية", "from": "2026-03-12", "to": "2026-03-14", "group": "", "receiptNo": "276046", "clinics": 25000, "visit": 0, "econ": 97030, "deficit": 0, "martyrs": 4510, "companion": 0, "decisions": 0, "bankRef": "1", "bankDate": "2026-03-15", "notes": ""}, {"m": "", "period": "الصباحية", "from": "2026-03-13", "to": "2026-03-15", "group": "", "receiptNo": "276047", "clinics": 35000, "visit": 2750, "econ": 44325, "deficit": 0, "martyrs": 3240, "companion": 0, "decisions": 400, "bankRef": "2", "bankDate": "2026-03-15", "notes": ""}, {"m": "", "period": "المسائية", "from": "2026-03-15", "to": "2026-03-15", "group": "", "receiptNo": "276048", "clinics": 5000, "visit": 0, "econ": 29425, "deficit": 0, "martyrs": 1420, "companion": 0, "decisions": 0, "bankRef": "4", "bankDate": "2026-03-16", "notes": ""}, {"m": "", "period": "الصباحية", "from": "2026-03-16", "to": "2026-03-16", "group": "", "receiptNo": "276049", "clinics": 17000, "visit": 500, "econ": 25665, "deficit": 0, "martyrs": 1760, "companion": 0, "decisions": 330, "bankRef": "2", "bankDate": "2026-03-16", "notes": ""}, {"m": "", "period": "المسائية", "from": "2026-03-16", "to": "2026-03-16", "group": "", "receiptNo": "276050", "clinics": 5000, "visit": 0, "econ": 24580, "deficit": 0, "martyrs": 1100, "companion": 0, "decisions": 0, "bankRef": "1", "bankDate": "2026-03-17", "notes": ""}, {"m": "", "period": "الصباحية", "from": "2026-03-17", "to": "2026-03-17", "group": "", "receiptNo": "276051", "clinics": 18000, "visit": 950, "econ": 20085, "deficit": 0, "martyrs": 1715, "companion": 0, "decisions": 430, "bankRef": "2", "bankDate": "2026-03-17", "notes": ""}, {"m": "", "period": "المسائية", "from": "2026-03-17", "to": "2026-03-17", "group": "", "receiptNo": "276052", "clinics": 5000, "visit": 0, "econ": 30375, "deficit": 0, "martyrs": 1480, "companion": 0, "decisions": 0, "bankRef": "3", "bankDate": "2026-03-18", "notes": ""}, {"m": "", "period": "الصباحية", "from": "2026-03-18", "to": "2026-03-18", "group": "", "receiptNo": "276053", "clinics": 17000, "visit": 350, "econ": 26920, "deficit": 0, "martyrs": 2000, "companion": 0, "decisions": 260, "bankRef": "2", "bankDate": "2026-03-18", "notes": ""}, {"m": "", "period": "المسائية", "from": "2026-03-18", "to": "2026-06-23", "group": "", "receiptNo": "276054", "clinics": 60000, "visit": 0, "econ": 217040, "deficit": 0, "martyrs": 10880, "companion": 0, "decisions": 0, "bankRef": "1", "bankDate": "2026-03-24", "notes": ""}, {"m": "", "period": "الصباحية", "from": "2026-03-19", "to": "2026-03-24", "group": "", "receiptNo": "276055", "clinics": 16000, "visit": 4000, "econ": 26960, "deficit": 0, "martyrs": 1900, "companion": 0, "decisions": 210, "bankRef": "2", "bankDate": "2026-03-24", "notes": ""}, {"m": "", "period": "المسائية", "from": "2026-03-24", "to": "2026-03-24", "group": "", "receiptNo": "276056", "clinics": 5000, "visit": 0, "econ": 29500, "deficit": 0, "martyrs": 1580, "companion": 0, "decisions": 0, "bankRef": "2", "bankDate": "2026-03-25", "notes": ""}, {"m": "", "period": "الصباحية", "from": "2026-03-25", "to": "2026-03-25", "group": "", "receiptNo": "276057", "clinics": 23000, "visit": 750, "econ": 35190, "deficit": 0, "martyrs": 2375, "companion": 0, "decisions": 400, "bankRef": "1", "bankDate": "2026-03-25", "notes": ""}, {"m": "", "period": "المسائية", "from": "2026-03-25", "to": "2026-03-25", "group": "", "receiptNo": "276058", "clinics": 10000, "visit": 0, "econ": 37195, "deficit": 0, "martyrs": 1420, "companion": 0, "decisions": 0, "bankRef": "4", "bankDate": "2026-03-26", "notes": ""}, {"m": "", "period": "الصباحية", "from": "2026-03-26", "to": "2026-03-26", "group": "", "receiptNo": "276059", "clinics": 22000, "visit": 800, "econ": 39725, "deficit": 0, "martyrs": 2700, "companion": 0, "decisions": 630, "bankRef": "3", "bankDate": "2026-03-26", "notes": ""}, {"m": "", "period": "المسائية", "from": "2026-03-26", "to": "2026-03-28", "group": "", "receiptNo": "276060", "clinics": 15000, "visit": 0, "econ": 118810, "deficit": 0, "martyrs": 5215, "companion": 0, "decisions": 0, "bankRef": "2", "bankDate": "2026-03-29", "notes": ""}, {"m": "", "period": "الصباحية", "from": "2026-03-27", "to": "2026-03-29", "group": "", "receiptNo": "276061", "clinics": 42000, "visit": 2300, "econ": 52445, "deficit": 0, "martyrs": 3295, "companion": 0, "decisions": 510, "bankRef": "3", "bankDate": "2026-03-29", "notes": ""}, {"m": "", "period": "المسائية", "from": "2026-03-29", "to": "2026-03-29", "group": "", "receiptNo": "276062", "clinics": 10000, "visit": 0, "econ": 35015, "deficit": 0, "martyrs": 1595, "companion": 0, "decisions": 0, "bankRef": "2", "bankDate": "2026-03-30", "notes": ""}, {"m": "", "period": "الصباحية", "from": "2026-03-30", "to": "2026-03-30", "group": "", "receiptNo": "276063", "clinics": 22000, "visit": 800, "econ": 52095, "deficit": 0, "martyrs": 3630, "companion": 0, "decisions": 640, "bankRef": "1", "bankDate": "2026-03-30", "notes": ""}, {"m": "", "period": "المسائية", "from": "2026-03-30", "to": "2026-03-30", "group": "", "receiptNo": "276064", "clinics": 5000, "visit": 0, "econ": 27485, "deficit": 0, "martyrs": 1500, "companion": 0, "decisions": 0, "bankRef": "3", "bankDate": "2026-03-31", "notes": ""}, {"m": "", "period": "الصباحية", "from": "2026-03-31", "to": "2026-03-31", "group": "", "receiptNo": "276065", "clinics": 21000, "visit": 650, "econ": 33638, "deficit": 0, "martyrs": 2480, "companion": 0, "decisions": 520, "bankRef": "4", "bankDate": "2026-03-31", "notes": ""}, {"m": "", "period": "المسائية", "from": "2026-03-31", "to": "2026-03-31", "group": "", "receiptNo": "276066", "clinics": 5000, "visit": 0, "econ": 31310, "deficit": 0, "martyrs": 1740, "companion": 0, "decisions": 0, "bankRef": "2", "bankDate": "2026-01-04", "notes": ""}, {"m": "", "period": "الصباحية", "from": "2026-04-01", "to": "2026-04-01", "group": "", "receiptNo": "276067", "clinics": 20000, "visit": 950, "econ": 44820, "deficit": 0, "martyrs": 2865, "companion": 0, "decisions": 450, "bankRef": "1", "bankDate": "2026-01-04", "notes": ""}, {"m": "", "period": "المسائية", "from": "2026-04-01", "to": "2026-04-01", "group": "", "receiptNo": "276068", "clinics": 10000, "visit": 0, "econ": 34685, "deficit": 0, "martyrs": 1700, "companion": 0, "decisions": 0, "bankRef": "", "bankDate": "2026-02-04", "notes": ""}, {"m": "", "period": "الصباحية", "from": "2026-04-02", "to": "2026-04-02", "group": "", "receiptNo": "276069", "clinics": 17000, "visit": 500, "econ": 27435, "deficit": 0, "martyrs": 2000, "companion": 0, "decisions": 270, "bankRef": "", "bankDate": "2026-02-04", "notes": ""}, {"m": "", "period": "المسائية", "from": "2026-04-02", "to": "2026-04-02", "group": "", "receiptNo": "276070", "clinics": 25000, "visit": 0, "econ": 93622, "deficit": 0, "martyrs": 4240, "companion": 0, "decisions": 0, "bankRef": "1", "bankDate": "2026-05-04", "notes": ""}, {"m": "", "period": "الصباحية", "from": "2026-04-03", "to": "2026-04-05", "group": "", "receiptNo": "276071", "clinics": 45000, "visit": 2850, "econ": 55880, "deficit": 0, "martyrs": 4000, "companion": 0, "decisions": 440, "bankRef": "2", "bankDate": "2026-05-04", "notes": ""}, {"m": "", "period": "المسائية", "from": "5/4/226", "to": "2026-04-05", "group": "", "receiptNo": "276072", "clinics": 5000, "visit": 0, "econ": 29980, "deficit": 0, "martyrs": 1600, "companion": 0, "decisions": 0, "bankRef": "3", "bankDate": "2026-06-04", "notes": ""}, {"m": "", "period": "الصباحية", "from": "2026-04-06", "to": "2026-04-06", "group": "", "receiptNo": "276073", "clinics": 22000, "visit": 850, "econ": 57285, "deficit": 0, "martyrs": 3995, "companion": 0, "decisions": 580, "bankRef": "2", "bankDate": "2026-06-04", "notes": ""}, {"m": "", "period": "المسائية", "from": "2026-04-06", "to": "2026-04-06", "group": "", "receiptNo": "276074", "clinics": 10000, "visit": 0, "econ": 54840, "deficit": 0, "martyrs": 2640, "companion": 0, "decisions": 0, "bankRef": "6", "bankDate": "2026-07-04", "notes": ""}, {"m": "", "period": "الصباحية", "from": "2026-04-07", "to": "2026-04-07", "group": "", "receiptNo": "276075", "clinics": 22000, "visit": 900, "econ": 31015, "deficit": 0, "martyrs": 1995, "companion": 0, "decisions": 280, "bankRef": "5", "bankDate": "2026-07-04", "notes": ""}, {"m": "", "period": "المسائية", "from": "2026-04-07", "to": "2026-04-07", "group": "", "receiptNo": "276076", "clinics": 5000, "visit": 0, "econ": 39965, "deficit": 0, "martyrs": 1760, "companion": 0, "decisions": 0, "bankRef": "", "bankDate": "2026-08-04", "notes": ""}, {"m": "", "period": "الصباحية", "from": "2026-04-08", "to": "2026-04-08", "group": "", "receiptNo": "276077", "clinics": 21000, "visit": 1300, "econ": 61545, "deficit": 0, "martyrs": 4000, "companion": 0, "decisions": 640, "bankRef": "", "bankDate": "2026-08-04", "notes": ""}, {"m": "", "period": "المسائية", "from": "2026-04-08", "to": "2026-04-08", "group": "", "receiptNo": "276078", "clinics": 10000, "visit": 0, "econ": 31385, "deficit": 0, "martyrs": 1660, "companion": 0, "decisions": 0, "bankRef": "7", "bankDate": "2026-09-04", "notes": ""}, {"m": "", "period": "الصباحية", "from": "2026-04-09", "to": "2026-04-09", "group": "", "receiptNo": "276079", "clinics": 24000, "visit": 1100, "econ": 28080, "deficit": 0, "martyrs": 1995, "companion": 0, "decisions": 350, "bankRef": "6", "bankDate": "2026-09-04", "notes": ""}, {"m": "", "period": "المسائية", "from": "2026-04-09", "to": "2026-04-13", "group": "", "receiptNo": "276080", "clinics": 40000, "visit": 0, "econ": 153710, "deficit": 0, "martyrs": 7680, "companion": 0, "decisions": 0, "bankRef": "7", "bankDate": "2026-04-14", "notes": ""}, {"m": "", "period": "الصباحية", "from": "2026-04-10", "to": "2026-04-14", "group": "", "receiptNo": "276081", "clinics": 56000, "visit": 4800, "econ": 122515, "deficit": 0, "martyrs": 7995, "companion": 0, "decisions": 980, "bankRef": "6", "bankDate": "2026-04-14", "notes": ""}, {"m": "", "period": "المسائية", "from": "2026-04-14", "to": "2026-04-14", "group": "", "receiptNo": "276082", "clinics": 5000, "visit": 0, "econ": 35815, "deficit": 0, "martyrs": 1900, "companion": 0, "decisions": 0, "bankRef": "2", "bankDate": "2026-04-15", "notes": ""}, {"m": "", "period": "الصباحية", "from": "2026-04-15", "to": "2026-04-15", "group": "", "receiptNo": "276083", "clinics": 27000, "visit": 650, "econ": 29485, "deficit": 0, "martyrs": 1995, "companion": 0, "decisions": 300, "bankRef": "1", "bankDate": "2026-04-15", "notes": ""}, {"m": "", "period": "المسائية", "from": "2026-04-16", "to": "2026-04-16", "group": "", "receiptNo": "276084", "clinics": 5000, "visit": 0, "econ": 33270, "deficit": 0, "martyrs": 1655, "companion": 0, "decisions": 0, "bankRef": "4", "bankDate": "2026-04-16", "notes": ""}, {"m": "", "period": "الصباحية", "from": "2026-04-16", "to": "2026-04-16", "group": "", "receiptNo": "276085", "clinics": 19000, "visit": 750, "econ": 57360, "deficit": 0, "martyrs": 3995, "companion": 0, "decisions": 630, "bankRef": "5", "bankDate": "2026-04-16", "notes": ""}, {"m": "", "period": "المسائية", "from": "2026-04-16", "to": "2026-04-18", "group": "", "receiptNo": "276086", "clinics": 30000, "visit": 0, "econ": 112115, "deficit": 0, "martyrs": 5520, "companion": 0, "decisions": 0, "bankRef": "5", "bankDate": "2026-04-19", "notes": ""}, {"m": "", "period": "الصباحية", "from": "2026-04-17", "to": "2026-04-19", "group": "", "receiptNo": "276087", "clinics": 48000, "visit": 2500, "econ": 57030, "deficit": 0, "martyrs": 3985, "companion": 0, "decisions": 680, "bankRef": "4", "bankDate": "2026-04-19", "notes": ""}, {"m": "", "period": "المسائية", "from": "2026-04-19", "to": "2026-04-19", "group": "", "receiptNo": "276088", "clinics": 10000, "visit": 0, "econ": 32280, "deficit": 0, "martyrs": 1500, "companion": 0, "decisions": 0, "bankRef": "1", "bankDate": "2026-04-20", "notes": ""}, {"m": "", "period": "الصباحية", "from": "2026-04-20", "to": "2026-04-20", "group": "", "receiptNo": "276089", "clinics": 23000, "visit": 640, "econ": 31360, "deficit": 0, "martyrs": 2000, "companion": 0, "decisions": 250, "bankRef": "2", "bankDate": "2026-04-20", "notes": ""}, {"m": "", "period": "المسائية", "from": "2026-04-20", "to": "2026-04-20", "group": "", "receiptNo": "276090", "clinics": 10000, "visit": 0, "econ": 33240, "deficit": 0, "martyrs": 1635, "companion": 0, "decisions": 0, "bankRef": "7", "bankDate": "2026-04-21", "notes": ""}, {"m": "", "period": "الصباحية", "from": "2026-04-21", "to": "2026-04-21", "group": "", "receiptNo": "276091", "clinics": 21000, "visit": 1090, "econ": 66265, "deficit": 0, "martyrs": 3990, "companion": 0, "decisions": 550, "bankRef": "6", "bankDate": "2026-04-21", "notes": ""}, {"m": "", "period": "المسائية", "from": "2026-04-21", "to": "2026-04-21", "group": "", "receiptNo": "276092", "clinics": 5000, "visit": 0, "econ": 28640, "deficit": 0, "martyrs": 1700, "companion": 0, "decisions": 0, "bankRef": "1", "bankDate": "2026-04-22", "notes": ""}, {"m": "", "period": "الصباحية", "from": "2026-04-22", "to": "2026-04-22", "group": "", "receiptNo": "276093", "clinics": 22000, "visit": 940, "econ": 29955, "deficit": 0, "martyrs": 1990, "companion": 0, "decisions": 330, "bankRef": "2", "bankDate": "2026-04-22", "notes": ""}, {"m": "", "period": "المسائية", "from": "2026-04-23", "to": "2026-04-23", "group": "", "receiptNo": "276094", "clinics": 10000, "visit": 0, "econ": 26740, "deficit": 0, "martyrs": 1440, "companion": 0, "decisions": 0, "bankRef": "10", "bankDate": "2026-04-23", "notes": ""}, {"m": "", "period": "الصباحية", "from": "2026-04-23", "to": "2026-04-23", "group": "", "receiptNo": "276095", "clinics": 18000, "visit": 1630, "econ": 45235, "deficit": 0, "martyrs": 2995, "companion": 0, "decisions": 610, "bankRef": "9", "bankDate": "2026-04-23", "notes": ""}, {"m": "", "period": "المسائية", "from": "2026-04-23", "to": "2026-04-25", "group": "", "receiptNo": "276096", "clinics": 30000, "visit": 0, "econ": 113485, "deficit": 0, "martyrs": 5620, "companion": 0, "decisions": 0, "bankRef": "1", "bankDate": "2026-04-26", "notes": ""}, {"m": "", "period": "الصباحية", "from": "2026-04-24", "to": "2026-04-26", "group": "", "receiptNo": "276097", "clinics": 17000, "visit": 4000, "econ": 37350, "deficit": 0, "martyrs": 2310, "companion": 0, "decisions": 290, "bankRef": "2", "bankDate": "2026-04-26", "notes": ""}, {"m": "", "period": "المسائية", "from": "2026-04-26", "to": "2026-04-26", "group": "", "receiptNo": "276098", "clinics": 10000, "visit": 0, "econ": 30780, "deficit": 0, "martyrs": 1780, "companion": 0, "decisions": 0, "bankRef": "4", "bankDate": "2026-04-27", "notes": ""}, {"m": "", "period": "الصباحية", "from": "2026-04-27", "to": "2026-04-27", "group": "", "receiptNo": "276099", "clinics": 25000, "visit": 1590, "econ": 41910, "deficit": 0, "martyrs": 2680, "companion": 0, "decisions": 420, "bankRef": "3", "bankDate": "2026-04-27", "notes": ""}, {"m": "", "period": "المسائية", "from": "2026-04-27", "to": "2026-04-27", "group": "", "receiptNo": "276100", "clinics": 10000, "visit": 0, "econ": 34770, "deficit": 0, "martyrs": 1775, "companion": 0, "decisions": 0, "bankRef": "2", "bankDate": "2026-04-28", "notes": ""}, {"m": "", "period": "الصباحية", "from": "28/4/2026", "to": "28/4/2026", "group": "", "receiptNo": "276151", "clinics": 26910, "visit": 2160, "econ": 30085, "deficit": 0, "martyrs": 2000, "companion": 0, "decisions": 530, "bankRef": "3", "bankDate": "2026-04-28", "notes": ""}, {"m": "", "period": "المسائية", "from": "28/4/2026", "to": "28/4/2026", "group": "", "receiptNo": "276152", "clinics": 10000, "visit": 0, "econ": 36330, "deficit": 0, "martyrs": 1900, "companion": 0, "decisions": 0, "bankRef": "7", "bankDate": "2026-04-29", "notes": ""}, {"m": "", "period": "الصباحية", "from": "29/4/2026", "to": "29/4/2026", "group": "", "receiptNo": "276154", "clinics": 20090, "visit": 2250, "econ": 29460, "deficit": 0, "martyrs": 1995, "companion": 0, "decisions": 440, "bankRef": "8", "bankDate": "2026-04-29", "notes": ""}, {"m": "", "period": "المسائية", "from": "29/4/2026", "to": "29/4/2026", "group": "", "receiptNo": "276155", "clinics": 5000, "visit": 0, "econ": 26650, "deficit": 0, "martyrs": 1300, "companion": 0, "decisions": 0, "bankRef": "2", "bankDate": "2026-04-30", "notes": ""}, {"m": "", "period": "الصباحية", "from": "30/4/2026", "to": "30/4/2026", "group": "", "receiptNo": "276156", "clinics": 21000, "visit": 1760, "econ": 51715, "deficit": 0, "martyrs": 3755, "companion": 0, "decisions": 850, "bankRef": "11", "bankDate": "2026-04-30", "notes": ""}, {"m": "", "period": "المسائية", "from": "", "to": "", "group": "", "receiptNo": "276157", "clinics": 0, "visit": 0, "econ": 0, "deficit": 0, "martyrs": 0, "companion": 0, "decisions": 0, "bankRef": "", "bankDate": "", "notes": ""}]
+</script>
+
 <script>
 const SEED = JSON.parse(document.getElementById('seed-json').textContent);
+const TREASURY_SEED = JSON.parse(document.getElementById('treasury-seed-json').textContent);
 const fmt = n => (n===null||n===undefined||isNaN(n)) ? '—' : Number(n).toLocaleString('en-US',{maximumFractionDigits:2,minimumFractionDigits:0}) + ' ج.م';
 const fmtNum = n => (n===null||n===undefined||isNaN(n)) ? '0' : Number(n).toLocaleString('en-US',{maximumFractionDigits:3});
 const SHEETS = [
@@ -304,12 +310,11 @@ const SERVICE_PRICES_KEY = 'sohag_fund_service_prices';
 const SERVICES_KEY = 'sohag_fund_services_list_v1';
 const SERVICE_MARTYR_KEY = 'sohag_fund_service_martyr_prices_v1';
 const HIDDEN_SERVICES_KEY = 'sohag_fund_hidden_services_v1';
+const TREASURY_KEY = 'sohag_fund_treasury_rows_v1'; // صفحة "إيرادات الخزنة" — ثابتة، مستقلة عن الشهور
 const OLD_PEOPLE_KEY = 'sohag_fund_people_distribution';
 const OLD_MONTHS_KEY_V2 = 'sohag_fund_months_v2';
-/* بنية صف السجل: [التاريخ, رقم الإيصال, المجموعة, الدفتر, الملاحظات, ...مبالغ الخدمات بالترتيب]
-   الملاحظات فى موضع ثابت (فهرس 4) حتى لا يختل ترتيبها عند إضافة خدمات جديدة لاحقًا */
-const NOTES_IDX = 4;
-const SVC_OFFSET = 5;
+/* بنية صف السجل الآن كائن ثابت: { date, receiptNo, group, booklet, svc:[...], daily, notes }
+   (بدلًا من مصفوفة مواضع)، لتفادى أى اختلال فى المحاذاة عند إضافة/إخفاء خدمات لاحقًا */
 /* حالة فلاتر أعمدة السجل (مثل الإكسل) لكل فترة على حدة */
 let logFilters = { morning:{}, evening:{} };
 let openFilterMenu = null; // {which, col}
@@ -324,6 +329,7 @@ let activeModalServiceIdx = null;
 let SERVICE_PRICES = {};
 let SERVICE_MARTYR_PRICES = {}; // سعر فئة "شهداء" الخاص لكل خدمة (افتراضى 5 عند عدم التحديد)
 let HIDDEN_SERVICES = []; // أسماء الخدمات المُخفاة (لا تُحذف أعمدتها ولا بياناتها التاريخية)
+let TREASURY_ROWS = []; // صفوف صفحة "إيرادات الخزنة" الثابتة
 let dragFillState = null; // حالة سحب خانة التاريخ لتطبيقها على خانات أخرى
 
 /* ---------------- Firebase / Firestore (مشاركة البيانات بين الأجهزة) ---------------- */
@@ -337,7 +343,7 @@ const firebaseConfig = {
   measurementId: "G-3TSFR7EVNX"
 };
 const FS_COLLECTION = 'sohag_fund';
-const FS_DOCS = { [MONTHS_KEY]: 'months_v3', [SERVICE_PRICES_KEY]: 'service_prices', [SERVICES_KEY]: 'services_list', [SERVICE_MARTYR_KEY]: 'service_martyr_prices', [HIDDEN_SERVICES_KEY]: 'hidden_services' };
+const FS_DOCS = { [MONTHS_KEY]: 'months_v3', [SERVICE_PRICES_KEY]: 'service_prices', [SERVICES_KEY]: 'services_list', [SERVICE_MARTYR_KEY]: 'service_martyr_prices', [HIDDEN_SERVICES_KEY]: 'hidden_services', [TREASURY_KEY]: 'treasury_rows' };
 let fsDb = null;
 try{
   if(window.firebase){
@@ -377,13 +383,7 @@ function startRealtimeSync(){
         if(m.lastGroup===undefined) m.lastGroup = '';
         if(!m.dailyTotalsMorning || typeof m.dailyTotalsMorning!=='object') m.dailyTotalsMorning = {};
         if(!m.dailyTotalsEvening || typeof m.dailyTotalsEvening!=='object') m.dailyTotalsEvening = {};
-        if(!m.notesMigrated){
-          // احتياطًا لو وصلت بيانات من جهاز لم يُحدَّث بعد بدون خانة الملاحظات
-          ['receiptLogMorning','receiptLogEvening'].forEach(key=>{
-            (m[key]||[]).forEach(r=>{ r.splice(NOTES_IDX,0,''); });
-          });
-          m.notesMigrated = true;
-        }
+        migrateMonthRowsToObjects(m);
       });
       if(!MONTHS.find(m=>m.id===currentMonthId)){
         currentMonthId = MONTHS.length ? MONTHS[MONTHS.length-1].id : null;
@@ -478,8 +478,7 @@ function seedFromOriginal(){
     people: [],
     receiptLogMorning: [],
     receiptLogEvening: [],
-    dailyTotalsMorning: {},
-    dailyTotalsEvening: {},
+    rowsAreObjects: true,
     lastGroup: '',
     booklet: { morning:{start:null,end:null,current:null}, evening:{start:null,end:null,current:null} }
   }));
@@ -502,6 +501,39 @@ function templateEmptyRows(sourceRows, extraCols){
 }
 
 /* ---------------- تحميل / حفظ الحالة ---------------- */
+/* --- ترحيل صفوف السجل من الصيغة القديمة (مصفوفات) إلى صيغة كائن ثابتة البنية:
+   { date, receiptNo, group, booklet, svc:[...], daily, notes }
+   هذه الصيغة تمنع اختلال محاذاة الأعمدة نهائيًا مهما تغيّر عدد الخدمات لاحقًا،
+   وتجعل "الملاحظات" و"الإجمالى اليومى" حقلين مستقلين لكل صف بدلًا من موضع فى مصفوفة. --- */
+function migrateMonthRowsToObjects(m){
+  if(m.rowsAreObjects) return;
+  const wasNotesAtIdx4 = !!m.notesMigrated; // هل سبق إدراج الملاحظات فى الفهرس 4 فى تحديث سابق
+  ['receiptLogMorning','receiptLogEvening'].forEach(key=>{
+    const rows = m[key] || [];
+    const dailyDict = key==='receiptLogMorning' ? (m.dailyTotalsMorning||{}) : (m.dailyTotalsEvening||{});
+    const converted = rows.map(r=>{
+      if(!Array.isArray(r)) return r; // مُهاجَر بالفعل (احتياطًا)
+      const date = r[0]||'', receiptNo = r[1]||'', group = r[2]||'', booklet = r[3]||'';
+      const svcStart = wasNotesAtIdx4 ? 5 : 4;
+      const notes = wasNotesAtIdx4 ? (r[4]||'') : '';
+      const svc = r.slice(svcStart).map(v=>Number(v)||0);
+      return { date, receiptNo, group, booklet, svc, daily:'', notes };
+    });
+    for(let i=0;i<converted.length;i++){
+      const cur = converted[i];
+      if(!cur || Array.isArray(cur)) continue;
+      const isLastOfDay = (i===converted.length-1) || (converted[i+1].date !== cur.date);
+      if(isLastOfDay && dailyDict[cur.date]!==undefined && dailyDict[cur.date]!==null && dailyDict[cur.date]!==''){
+        cur.daily = dailyDict[cur.date];
+      }
+    }
+    m[key] = converted;
+  });
+  delete m.dailyTotalsMorning;
+  delete m.dailyTotalsEvening;
+  m.rowsAreObjects = true;
+}
+
 async function init(){
   let raw = await storageGet(MONTHS_KEY);
   if(!raw){
@@ -553,13 +585,7 @@ async function init(){
     if(m.lastGroup===undefined) m.lastGroup = '';
     if(!m.dailyTotalsMorning || typeof m.dailyTotalsMorning!=='object') m.dailyTotalsMorning = {};
     if(!m.dailyTotalsEvening || typeof m.dailyTotalsEvening!=='object') m.dailyTotalsEvening = {};
-    if(!m.notesMigrated){
-      // ترحيل لمرة واحدة: إدراج خانة "ملاحظات" فارغة فى الفهرس الثابت 4 لكل صف قديم (قبل هذا التحديث)
-      ['receiptLogMorning','receiptLogEvening'].forEach(key=>{
-        (m[key]||[]).forEach(r=>{ r.splice(NOTES_IDX,0,''); });
-      });
-      m.notesMigrated = true;
-    }
+    migrateMonthRowsToObjects(m);
     delete m.nextReceiptNo; // استُبدل بنظام الدفاتر لكل فترة
   });
 
@@ -589,6 +615,17 @@ async function init(){
     const hiddenRaw = await storageGet(HIDDEN_SERVICES_KEY);
     if(hiddenRaw) HIDDEN_SERVICES = JSON.parse(hiddenRaw) || [];
   }catch(e){ HIDDEN_SERVICES = []; }
+  try{
+    const treasuryRaw = await storageGet(TREASURY_KEY);
+    if(treasuryRaw){
+      const arr = JSON.parse(treasuryRaw);
+      TREASURY_ROWS = Array.isArray(arr) ? arr : [];
+    } else {
+      // أول مرة: تحميل بيانات الخزنة كما وردت من ملف الإكسل الأصلى كنقطة بداية
+      TREASURY_ROWS = JSON.parse(JSON.stringify(TREASURY_SEED));
+      await storageSet(TREASURY_KEY, JSON.stringify(TREASURY_ROWS));
+    }
+  }catch(e){ TREASURY_ROWS = []; }
   renderSidebar();
   renderSheet();
   saveAll(false);
@@ -649,6 +686,8 @@ function renderSidebar(){
   }).join('') || '<div style="padding:16px;color:#9fd6c8;font-size:.76rem">لا توجد شهور بعد</div>';
   const svcBtn = document.getElementById('services-nav-btn');
   if(svcBtn) svcBtn.style.background = (currentSheet==='servicesManager') ? 'rgba(193,120,23,.42)' : 'rgba(193,120,23,.16)';
+  const treasuryBtn = document.getElementById('treasury-nav-btn');
+  if(treasuryBtn) treasuryBtn.style.background = (currentSheet==='treasuryRevenues') ? 'rgba(46,125,50,.38)' : 'rgba(46,125,50,.14)';
 }
 
 function addMonth(){
@@ -667,9 +706,7 @@ function addMonth(){
     people: [],
     receiptLogMorning: [],
     receiptLogEvening: [],
-    dailyTotalsMorning: {},
-    dailyTotalsEvening: {},
-    notesMigrated: true,
+    rowsAreObjects: true,
     lastGroup: '',
     booklet: { morning:{start:null,end:null,current:null}, evening:{start:null,end:null,current:null} }
   };
@@ -876,6 +913,12 @@ function openServicesManager(){
   renderSheet();
 }
 
+function openTreasurySheet(){
+  currentSheet = 'treasuryRevenues';
+  renderSidebar();
+  renderSheet();
+}
+
 function renderSheet(){
   const container = document.getElementById('sheet-container');
 
@@ -884,6 +927,13 @@ function renderSheet(){
     document.getElementById('crumb').innerHTML = 'إعدادات عامة';
     container.innerHTML = renderServicesManagerSheet();
     bindLiveInputs();
+    return;
+  }
+
+  if(currentSheet==='treasuryRevenues'){
+    updateHeader(null, 'إيرادات الخزنة');
+    document.getElementById('crumb').innerHTML = 'صفحة ثابتة — مستقلة عن الشهور';
+    container.innerHTML = renderTreasurySheet();
     return;
   }
 
@@ -1339,22 +1389,35 @@ function computeRowExtras(rows){
   for(let i=0;i<rows.length;i++){
     const r = rows[i];
     let rowTotal = 0;
-    for(let ci=0; ci<SERVICE_NAMES.length; ci++) rowTotal += (Number(r[SVC_OFFSET+ci])||0);
-    if(i>0 && rows[i-1][3] !== r[3]) bookletSum = 0;
+    for(let ci=0; ci<SERVICE_NAMES.length; ci++) rowTotal += (Number(r.svc[ci])||0);
+    if(i>0 && rows[i-1].booklet !== r.booklet) bookletSum = 0;
     bookletSum += rowTotal;
-    const isLastOfBooklet = (i===rows.length-1) || (rows[i+1][3] !== r[3]);
+    const isLastOfBooklet = (i===rows.length-1) || (rows[i+1].booklet !== r.booklet);
     extras[i] = { bookletTotal: isLastOfBooklet ? bookletSum : null };
   }
   return extras;
 }
 
-/* --- قيمة عرض أى عمود لصف معيّن (تُستخدم لبناء قوائم الفلتر ولتطبيقه) --- */
+/* --- قيمة عرض أى عمود لصف معيّن (تُستخدم لبناء قوائم الفلتر ولتطبيقه) ---
+   ترتيب الأعمدة: 0=التاريخ 1=رقم الإيصال 2=المجموعة 3=الدفتر 4..(4+N-1)=الخدمات
+   ثم: إجمالى الدفتر (محسوب، غير قابل للفلترة) — إجمالى اليومية (لكل صف) — ملاحظات (أخيرًا) --- */
 function wideLogCellDisplay(r, colIdx){
-  if(colIdx<SVC_OFFSET) return String(r[colIdx]==null?'':r[colIdx]).trim();
-  const svcIdx = colIdx-SVC_OFFSET;
-  if(svcIdx>=SERVICE_NAMES.length) return ''; // أعمدة الإجماليات المحسوبة/اليدوية لا تُفلتر
-  const v = Number(r[SVC_OFFSET+svcIdx])||0;
-  return v ? fmtNum(v) : '';
+  if(colIdx===0) return String(r.date||'').trim();
+  if(colIdx===1) return String(r.receiptNo||'').trim();
+  if(colIdx===2) return String(r.group||'').trim();
+  if(colIdx===3) return String(r.booklet||'').trim();
+  const svcIdx = colIdx-4;
+  if(svcIdx < SERVICE_NAMES.length){
+    const v = Number(r.svc[svcIdx])||0;
+    return v ? fmtNum(v) : '';
+  }
+  const extraIdx = svcIdx - SERVICE_NAMES.length; // 0=إجمالى الدفتر(غير مستخدم هنا) 1=اليومية 2=ملاحظات
+  if(extraIdx===1){
+    const v = r.daily;
+    return (v!==undefined && v!==null && v!=='') ? fmtNum(Number(v)||0) : '';
+  }
+  if(extraIdx===2) return String(r.notes||'').trim();
+  return '';
 }
 
 /* --- تطبيق فلاتر الأعمدة (مثل الإكسل) على صفوف فترة معيّنة --- */
@@ -1467,7 +1530,7 @@ document.addEventListener('click', function(e){
 function updateRowDate(session, idx, value){
   const m = getCurrentMonth(); if(!m || m.locked) return;
   const rows = session==='evening' ? m.receiptLogEvening : m.receiptLogMorning;
-  if(rows[idx]) rows[idx][0] = value;
+  if(rows[idx]) rows[idx].date = value;
   scheduleAutoSave();
   updateLogWrap(session);
 }
@@ -1506,7 +1569,7 @@ function onDateDragEnd(){
       const rows = dragFillState.session==='evening' ? m.receiptLogEvening : m.receiptLogMorning;
       const lo = Math.min(dragFillState.idx, dragFillState.targetIdx);
       const hi = Math.max(dragFillState.idx, dragFillState.targetIdx);
-      for(let i=lo;i<=hi;i++){ if(rows[i]) rows[i][0] = dragFillState.value; }
+      for(let i=lo;i<=hi;i++){ if(rows[i]) rows[i].date = dragFillState.value; }
       scheduleAutoSave();
       updateLogWrap(dragFillState.session);
     }
@@ -1514,41 +1577,44 @@ function onDateDragEnd(){
   dragFillState = null;
 }
 
-/* --- تعديل ملاحظة صف واحد --- */
+/* --- تعديل ملاحظة صف واحد (عمود مستقل لكل صف — لا علاقة له بباقى الصفوف) --- */
 function updateRowNote(session, idx, value){
   const m = getCurrentMonth(); if(!m || m.locked) return;
   const rows = session==='evening' ? m.receiptLogEvening : m.receiptLogMorning;
-  if(rows[idx]) rows[idx][NOTES_IDX] = value;
+  if(rows[idx]) rows[idx].notes = value;
   scheduleAutoSave();
 }
 
-/* --- تعديل إجمالى اليومية اليدوى — يمكن الكتابة فى أى خانة من نفس اليوم وتنعكس على كل صفوفه --- */
-function setDailyTotalValue(session, dateKey, val){
+/* --- تعديل إجمالى اليومية اليدوى — قيمة مستقلة لكل صف على حدة: الرقم يبقى فقط فى الخانة التى كُتب بها --- */
+function updateRowDaily(session, idx, val){
   const m = getCurrentMonth(); if(!m || m.locked) return;
-  const store = session==='evening' ? m.dailyTotalsEvening : m.dailyTotalsMorning;
+  const rows = session==='evening' ? m.receiptLogEvening : m.receiptLogMorning;
+  if(!rows[idx]) return;
   const v = String(val).trim();
-  if(v==='') delete store[dateKey]; else store[dateKey] = parseFloat(v)||0;
+  rows[idx].daily = (v==='') ? '' : (parseFloat(v)||0);
   scheduleAutoSave();
-  updateLogWrap(session);
 }
 
 /* --- جدول السجل الواسع بنفس تنسيق ملفات الإكسل: صفوف إجمالى/عدد إيصالات أعلى الرأس + فلتر لكل عمود
-   + عمود ملاحظات + عمود اليومية يدوى (قابل للتعديل من أى خانة) + سحب التاريخ + عرض كل الصفوف دائمًا --- */
+   ترتيب الأعمدة: التاريخ | رقم الإيصال | المجموعة | الدفتر | [الخدمات...] | إجمالى الدفتر | إجمالى اليومية (لكل صف) | ملاحظات (أخيرًا)
+   + سحب التاريخ + عرض كل الصفوف دائمًا --- */
 function wideLogTableHtml(rows, editableSession, m, session){
   rows = rows || [];
   const showDelete = !!editableSession;
   const extras = computeRowExtras(rows);
   const filtered = getFilteredRows(rows, session);
   const hasActiveFilter = logFilters[session] && Object.keys(logFilters[session]).length>0;
-  const dailyStore = session==='evening' ? (m && m.dailyTotalsEvening) : (m && m.dailyTotalsMorning);
 
-  const fixedHeaders = ['التاريخ','رقم الإيصال','المجموعة','الدفتر','ملاحظات'];
-  const allHeaders = [...fixedHeaders, ...SERVICE_NAMES, 'إجمالى الدفتر','إجمالى اليومية (إدخال يدوى)'];
+  const fixedHeaders = ['التاريخ','رقم الإيصال','المجموعة','الدفتر'];
+  const allHeaders = [...fixedHeaders, ...SERVICE_NAMES, 'إجمالى الدفتر','إجمالى اليومية (لكل صف)','ملاحظات'];
+  const bookletColIdx = fixedHeaders.length + SERVICE_NAMES.length;
+  const dailyColIdx = bookletColIdx + 1;
+  const notesColIdx = bookletColIdx + 2;
   const colBandClass = idx => {
     // ألوان أعمدة دورية على شكل مجموعات، بنفس روح شيت الإكسل الملوّن
     const palette = ['band-1','band-2','band-3','band-4'];
     if(idx < fixedHeaders.length) return 'band-fixed';
-    if(idx >= fixedHeaders.length + SERVICE_NAMES.length) return 'band-fixed';
+    if(idx >= bookletColIdx) return 'band-fixed';
     return palette[Math.floor((idx-fixedHeaders.length)/3) % palette.length];
   };
 
@@ -1558,27 +1624,25 @@ function wideLogTableHtml(rows, editableSession, m, session){
   // صف عدد الإيصالات (لكل بند: عدد الصفوف المرئية/المفلترة التى بها قيمة أكبر من صفر)
   const countCells = allHeaders.map((h,idx)=>{
     if(idx < fixedHeaders.length) return `<td class="excel-count">${idx===0?'عدد الإيصالات':''}</td>`;
-    if(idx >= fixedHeaders.length + SERVICE_NAMES.length) return `<td class="excel-count">—</td>`;
+    if(idx >= bookletColIdx) return `<td class="excel-count">—</td>`;
     const svcIdx = idx - fixedHeaders.length;
-    const count = filtered.filter(({r})=>(Number(r[SVC_OFFSET+svcIdx])||0)>0).length;
+    const count = filtered.filter(({r})=>(Number(r.svc[svcIdx])||0)>0).length;
     return `<td class="excel-count num">${count||''}</td>`;
   }).join('') + (showDelete?'<td class="no-print"></td>':'');
 
   // صف إجمالى التوريد (لكل بند: مجموع الصفوف المرئية/المفلترة)
   const totalCells = allHeaders.map((h,idx)=>{
     if(idx < fixedHeaders.length) return `<td class="excel-supply-total">${idx===0?'اجمالى التوريد':''}</td>`;
-    if(idx >= fixedHeaders.length + SERVICE_NAMES.length) return `<td class="excel-supply-total">—</td>`;
+    if(idx >= bookletColIdx) return `<td class="excel-supply-total">—</td>`;
     const svcIdx = idx - fixedHeaders.length;
-    const total = filtered.reduce((s,{r})=> s + (Number(r[SVC_OFFSET+svcIdx])||0), 0);
+    const total = filtered.reduce((s,{r})=> s + (Number(r.svc[svcIdx])||0), 0);
     return `<td class="excel-supply-total num">${total?fmtNum(total):''}</td>`;
   }).join('') + (showDelete?'<td class="no-print"></td>':'');
 
-  // صف رؤوس الأعمدة مع أيقونة فلتر (▼) لكل عمود بيانات فعلى، مثل الإكسل
-  // (أعمدة "إجمالى الدفتر" و"إجمالى اليومية" محسوبة/يدوية ولا تحتاج فلتر)
+  // صف رؤوس الأعمدة مع أيقونة فلتر (▼) لكل عمود بيانات فعلى، مثل الإكسل (ما عدا "إجمالى الدفتر" المحسوب)
   colfCurrentRows = rows;
-  const filterableUpTo = fixedHeaders.length + SERVICE_NAMES.length;
   const headerRowHtml = allHeaders.map((h,idx)=>{
-    if(idx >= filterableUpTo) return `<th>${escapeHtml(h)}</th>`;
+    if(idx===bookletColIdx) return `<th>${escapeHtml(h)}</th>`;
     const isFiltered = logFilters[session] && logFilters[session][idx] instanceof Set;
     const filterIcon = `<span class="col-filter-ic no-print ${isFiltered?'active':''}" onclick="toggleColumnFilterMenu('${session}',${idx},event)" title="فلتر">▾</span>`;
     return `<th>${escapeHtml(h)} ${filterIcon}</th>`;
@@ -1590,31 +1654,29 @@ function wideLogTableHtml(rows, editableSession, m, session){
     const ex = extras[origIdx];
 
     const dateCell = editableSession
-      ? `<td style="position:relative"><input type="text" class="cell-input date-input" style="border:1px solid var(--b);text-align:center;padding-left:14px" value="${escapeHtml(r[0])}" onchange="updateRowDate('${session}',${origIdx},this.value)"><span class="fill-handle" title="اسحب لتطبيق نفس التاريخ على صفوف أخرى" onmousedown="startDateDragFill('${session}',${origIdx},this.previousElementSibling.value,event)"></span></td>`
-      : `<td>${escapeHtml(r[0])}</td>`;
-    const midFixedCells = [1,2,3].map(ci=>`<td>${escapeHtml(r[ci])}</td>`).join('');
-    const notesCell = editableSession
-      ? `<td><input type="text" class="cell-input" style="border:1px solid var(--b);min-width:130px" value="${escapeHtml(r[NOTES_IDX]||'')}" placeholder="ملاحظة..." onchange="updateRowNote('${session}',${origIdx},this.value)"></td>`
-      : `<td style="white-space:normal;min-width:110px">${escapeHtml(r[NOTES_IDX]||'')}</td>`;
+      ? `<td style="position:relative"><input type="text" class="cell-input date-input" style="border:1px solid var(--b);text-align:center;padding-left:14px" value="${escapeHtml(r.date)}" onchange="updateRowDate('${session}',${origIdx},this.value)"><span class="fill-handle" title="اسحب لتطبيق نفس التاريخ على صفوف أخرى" onmousedown="startDateDragFill('${session}',${origIdx},this.previousElementSibling.value,event)"></span></td>`
+      : `<td>${escapeHtml(r.date)}</td>`;
+    const midFixedCells = [r.receiptNo, r.group, r.booklet].map(v=>`<td>${escapeHtml(v)}</td>`).join('');
 
     let svcCells = '';
     for(let ci=0; ci<SERVICE_NAMES.length; ci++){
-      const v = Number(r[SVC_OFFSET+ci])||0;
+      const v = Number(r.svc[ci])||0;
       svcCells += `<td class="num">${v?fmtNum(v):''}</td>`;
     }
     const bookletCell = `<td class="num" style="font-weight:900;color:var(--a)">${ex.bookletTotal!==null?fmt(ex.bookletTotal):''}</td>`;
 
-    const dateKey = r[0];
-    const storedVal = dailyStore ? dailyStore[dateKey] : undefined;
-    const hasStoredVal = storedVal!==undefined && storedVal!==null && storedVal!=='';
+    const hasDaily = r.daily!==undefined && r.daily!==null && r.daily!=='';
     let dayCell;
     if(editableSession){
-      dayCell = `<td><input type="number" step="0.01" class="cell-input" style="font-weight:900;color:var(--p);text-align:center" value="${hasStoredVal?storedVal:''}" placeholder="—" onchange="setDailyTotalValue('${session}','${escapeHtml(dateKey)}',this.value)"></td>`;
+      dayCell = `<td><input type="number" step="0.01" class="cell-input" style="font-weight:900;color:var(--p);text-align:center" value="${hasDaily?r.daily:''}" placeholder="—" onchange="updateRowDaily('${session}',${origIdx},this.value)"></td>`;
     } else {
-      dayCell = `<td class="num" style="font-weight:900;color:var(--p)">${hasStoredVal?fmt(storedVal):''}</td>`;
+      dayCell = `<td class="num" style="font-weight:900;color:var(--p)">${hasDaily?fmt(r.daily):''}</td>`;
     }
+    const notesCell = editableSession
+      ? `<td><input type="text" class="cell-input" style="border:1px solid var(--b);min-width:130px" value="${escapeHtml(r.notes||'')}" placeholder="ملاحظة..." onchange="updateRowNote('${session}',${origIdx},this.value)"></td>`
+      : `<td style="white-space:normal;min-width:110px">${escapeHtml(r.notes||'')}</td>`;
     const delCell = showDelete ? `<td class="no-print"><button class="btn-er" onclick="removeWideLogRow('${editableSession}',${origIdx})">✕</button></td>` : '';
-    bodyHtml += `<tr data-row-idx="${origIdx}">${dateCell}${midFixedCells}${notesCell}${svcCells}${bookletCell}${dayCell}${delCell}</tr>`;
+    bodyHtml += `<tr data-row-idx="${origIdx}">${dateCell}${midFixedCells}${svcCells}${bookletCell}${dayCell}${notesCell}${delCell}</tr>`;
   }
   if(!bodyHtml){
     bodyHtml = `<tr><td colspan="${allHeaders.length+(showDelete?1:0)}" style="color:var(--tm);font-weight:600">${hasActiveFilter?'لا توجد صفوف مطابقة للفلتر الحالى':'لا توجد قيود بعد'}</td></tr>`;
@@ -1622,11 +1684,11 @@ function wideLogTableHtml(rows, editableSession, m, session){
 
   let svcTotals = '';
   for(let ci=0; ci<SERVICE_NAMES.length; ci++){
-    const t = filtered.reduce((s,{r})=> s + (Number(r[SVC_OFFSET+ci])||0), 0);
+    const t = filtered.reduce((s,{r})=> s + (Number(r.svc[ci])||0), 0);
     svcTotals += `<td class="num" style="font-weight:900">${t?fmtNum(t):'0'}</td>`;
   }
-  const totalsHtml = `<td colspan="5">الإجمالى (${filtered.length} إيصال${hasActiveFilter?' — بعد الفلتر من '+rows.length:''})</td>` + svcTotals +
-    `<td class="num">—</td><td class="num">—</td>` +
+  const totalsHtml = `<td colspan="4">الإجمالى (${filtered.length} إيصال${hasActiveFilter?' — بعد الفلتر من '+rows.length:''})</td>` + svcTotals +
+    `<td class="num">—</td><td class="num">—</td><td class="num">—</td>` +
     (showDelete?'<td class="no-print"></td>':'');
 
   const filterBar = hasActiveFilter ? `<div class="load-more-bar no-print" style="background:#fbeedd;border-color:#eccf9c">
@@ -1657,16 +1719,15 @@ function updateLogWrap(session){
 function exportLogToExcel(session){
   const m = getCurrentMonth(); if(!m) return;
   const rows = session==='evening' ? m.receiptLogEvening : m.receiptLogMorning;
-  const dailyStore = session==='evening' ? m.dailyTotalsEvening : m.dailyTotalsMorning;
   if(!rows.length){ alert('لا توجد بيانات فى هذا السجل لتصديرها.'); return; }
   const extras = computeRowExtras(rows);
-  const header = ['التاريخ','رقم الإيصال','المجموعة','الدفتر','ملاحظات', ...SERVICE_NAMES, 'إجمالى الدفتر','إجمالى اليومية (يدوى)'];
+  const header = ['التاريخ','رقم الإيصال','المجموعة','الدفتر', ...SERVICE_NAMES, 'إجمالى الدفتر','إجمالى اليومية','ملاحظات'];
   const aoa = [header];
   rows.forEach((r,i)=>{
     const ex = extras[i];
-    const svcVals = SERVICE_NAMES.map((n,ci)=> Number(r[SVC_OFFSET+ci])||0);
-    const dayVal = (dailyStore && dailyStore[r[0]]!==undefined) ? dailyStore[r[0]] : '';
-    aoa.push([r[0]||'', r[1]||'', r[2]||'', r[3]||'', r[NOTES_IDX]||'', ...svcVals, ex.bookletTotal!==null?ex.bookletTotal:'', dayVal]);
+    const svcVals = SERVICE_NAMES.map((n,ci)=> Number(r.svc[ci])||0);
+    const dayVal = (r.daily!==undefined && r.daily!==null && r.daily!=='') ? r.daily : '';
+    aoa.push([r.date||'', r.receiptNo||'', r.group||'', r.booklet||'', ...svcVals, ex.bookletTotal!==null?ex.bookletTotal:'', dayVal, r.notes||'']);
   });
   const ws = XLSX.utils.aoa_to_sheet(aoa);
   const wb = XLSX.utils.book_new();
@@ -1679,8 +1740,8 @@ function exportLogToExcel(session){
 /* --- ملخص التوريد والإيصالات (يتحدث تلقائيًا) --- */
 function computeReceiptSummary(m){
   let totalMorning = 0, totalEvening = 0;
-  m.receiptLogMorning.forEach(r=>{ for(let ci=0; ci<SERVICE_NAMES.length; ci++) totalMorning += (Number(r[SVC_OFFSET+ci])||0); });
-  m.receiptLogEvening.forEach(r=>{ for(let ci=0; ci<SERVICE_NAMES.length; ci++) totalEvening += (Number(r[SVC_OFFSET+ci])||0); });
+  m.receiptLogMorning.forEach(r=>{ for(let ci=0; ci<SERVICE_NAMES.length; ci++) totalMorning += (Number(r.svc[ci])||0); });
+  m.receiptLogEvening.forEach(r=>{ for(let ci=0; ci<SERVICE_NAMES.length; ci++) totalEvening += (Number(r.svc[ci])||0); });
   return {
     totalBoth: totalMorning+totalEvening,
     totalMorning, totalEvening,
@@ -1769,8 +1830,8 @@ function confirmSaveFromModal(){
 
   const bk = m.booklet[sk];
   const bookletLabel = `${bk.start}-${bk.end}`;
-  const row = [dateVal, receiptNoVal, groupVal, bookletLabel, '', ...Array(SERVICE_NAMES.length).fill(0)];
-  row[SVC_OFFSET+activeModalServiceIdx] = amountVal;
+  const row = { date: dateVal, receiptNo: receiptNoVal, group: groupVal, booklet: bookletLabel, svc: Array(SERVICE_NAMES.length).fill(0), daily: '', notes: '' };
+  row.svc[activeModalServiceIdx] = amountVal;
 
   if(sk==='evening'){ m.receiptLogEvening.push(row); } else { m.receiptLogMorning.push(row); }
 
@@ -1951,6 +2012,114 @@ async function restoreServiceAction(idx){
   toastSaved('✔ تم إظهار الخدمة مرة أخرى');
 }
 
+/* --- صفحة "إيرادات الخزنة" — صفحة ثابتة مستقلة عن الشهور، بنفس شكل شيت "يناير توريد خزنة رئيسية" فى الإكسل الأصلى --- */
+const TREASURY_COLS = [
+  { key:'m', label:'م', type:'text', width:'55px' },
+  { key:'period', label:'الفترة', type:'text', width:'90px' },
+  { key:'from', label:'من', type:'date', width:'130px' },
+  { key:'to', label:'الى', type:'date', width:'130px' },
+  { key:'group', label:'مجموعة', type:'text', width:'90px' },
+  { key:'receiptNo', label:'رقم الإيصال 37ع.ح', type:'text', width:'110px' },
+  { key:'clinics', label:'عيادات', type:'num' },
+  { key:'visit', label:'زيارة عادية', type:'num' },
+  { key:'econ', label:'اقتصادى عادى', type:'num' },
+  { key:'deficit', label:'عجز توريد', type:'num' },
+  { key:'martyrs', label:'صندوق شهداء', type:'num' },
+  { key:'companion', label:'مرافق مريض', type:'num' },
+  { key:'decisions', label:'قرارات', type:'num' },
+  { key:'bankRef', label:'رقم توريد البنك', type:'text', width:'110px' },
+  { key:'bankDate', label:'تاريخ التوريد', type:'date', width:'130px' },
+  { key:'notes', label:'ملاحظات', type:'text', width:'140px' }
+];
+const TREASURY_SUM_KEYS = ['clinics','visit','econ','deficit','martyrs','companion','decisions'];
+
+function treasuryRowTotal(r){
+  return TREASURY_SUM_KEYS.reduce((s,k)=> s + (Number(r[k])||0), 0);
+}
+
+function renderTreasurySheet(){
+  const rows = TREASURY_ROWS;
+  const grandTotal = rows.reduce((s,r)=> s + treasuryRowTotal(r), 0);
+  const sums = {};
+  TREASURY_SUM_KEYS.forEach(k=> sums[k] = rows.reduce((s,r)=> s + (Number(r[k])||0), 0));
+
+  const headHtml = TREASURY_COLS.map(c=>`<th${c.width?` style="min-width:${c.width}"`:''}>${escapeHtml(c.label)}</th>`).join('') + '<th>الإجمالى</th><th class="no-print" style="width:34px"></th>';
+
+  const bodyHtml = rows.map((r,i)=>{
+    const cells = TREASURY_COLS.map(c=>{
+      const v = r[c.key]===undefined||r[c.key]===null ? '' : r[c.key];
+      if(c.type==='text'){
+        return `<td><input class="cell-input name-input" style="border:1px solid var(--b)" value="${escapeHtml(v)}" onchange="updateTreasuryCell(${i},'${c.key}',this.value)"></td>`;
+      }
+      if(c.type==='date'){
+        return `<td><input type="text" class="cell-input" style="border:1px solid var(--b);text-align:center" placeholder="YYYY-MM-DD" value="${escapeHtml(v)}" onchange="updateTreasuryCell(${i},'${c.key}',this.value)"></td>`;
+      }
+      return `<td><input type="number" step="0.01" class="cell-input" style="border:1px solid var(--b);text-align:center" value="${v!==''?v:''}" onchange="updateTreasuryCell(${i},'${c.key}',this.value)"></td>`;
+    }).join('');
+    const total = treasuryRowTotal(r);
+    return `<tr>${cells}<td class="num" style="font-weight:900;color:var(--a)">${total?fmtNum(total):'0'}</td><td class="no-print"><button class="btn-er" onclick="deleteTreasuryRow(${i})">✕</button></td></tr>`;
+  }).join('') || `<tr><td colspan="${TREASURY_COLS.length+2}" style="color:var(--tm);font-weight:600">لا توجد بيانات بعد</td></tr>`;
+
+  const totalsRow = TREASURY_COLS.map(c=>{
+    if(c.key==='m') return `<td>الإجمالى (${rows.length} إيصال)</td>`;
+    if(TREASURY_SUM_KEYS.includes(c.key)) return `<td class="num" style="font-weight:900">${fmtNum(sums[c.key])}</td>`;
+    return `<td>—</td>`;
+  }).join('') + `<td class="num" style="font-weight:900;color:var(--a)">${fmtNum(grandTotal)}</td><td class="no-print"></td>`;
+
+  return `
+  <div class="sheet-card">
+    <div class="sheet-card-head">
+      <h2>🏦 الخزنة الرئيسية — إيصال 37 (الخزنة وتوريد البنك)</h2>
+      <div class="head-btns no-print">
+        <button class="btn btn-p btn-sm" onclick="addTreasuryRow()">➕ إضافة صف جديد</button>
+        <button class="btn btn-ok btn-sm" onclick="exportTreasuryToExcel()">⬇ تصدير إكسل</button>
+      </div>
+    </div>
+    <div style="font-size:.72rem;font-weight:700;color:var(--tm);margin-bottom:14px;line-height:1.7">
+      هذه الصفحة ثابتة ومستقلة عن قائمة الشهور — بنفس أعمدة شيت "يناير توريد خزنة رئيسية" فى ملف الإكسل الأصلى، وتُحمَّل ببياناته كنقطة بداية ويمكن التعديل عليها أو إضافة صفوف جديدة بحرية من هنا.
+    </div>
+    <div style="overflow-x:auto">
+    <table class="tbl">
+      <thead><tr>${headHtml}</tr></thead>
+      <tbody>${bodyHtml}</tbody>
+      <tfoot><tr>${totalsRow}</tr></tfoot>
+    </table>
+    </div>
+  </div>`;
+}
+
+function updateTreasuryCell(idx, key, value){
+  if(!TREASURY_ROWS[idx]) return;
+  const col = TREASURY_COLS.find(c=>c.key===key);
+  TREASURY_ROWS[idx][key] = (col && col.type==='num') ? (parseFloat(value)||0) : value;
+  storageSet(TREASURY_KEY, JSON.stringify(TREASURY_ROWS));
+  renderSheet(); // لإعادة حساب الإجمالى الخاص بالصف وصف الإجماليات أسفل الجدول
+}
+function addTreasuryRow(){
+  const blank = {};
+  TREASURY_COLS.forEach(c=> blank[c.key] = c.type==='num' ? 0 : '');
+  TREASURY_ROWS.push(blank);
+  storageSet(TREASURY_KEY, JSON.stringify(TREASURY_ROWS));
+  renderSheet();
+}
+function deleteTreasuryRow(idx){
+  if(!confirm('حذف هذا الصف نهائيًا؟')) return;
+  TREASURY_ROWS.splice(idx,1);
+  storageSet(TREASURY_KEY, JSON.stringify(TREASURY_ROWS));
+  renderSheet();
+}
+function exportTreasuryToExcel(){
+  if(!TREASURY_ROWS.length){ alert('لا توجد بيانات لتصديرها.'); return; }
+  const header = TREASURY_COLS.map(c=>c.label).concat('الإجمالى');
+  const aoa = [header];
+  TREASURY_ROWS.forEach(r=>{
+    aoa.push(TREASURY_COLS.map(c=> r[c.key]!==undefined?r[c.key]:'').concat(treasuryRowTotal(r)));
+  });
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'إيرادات الخزنة');
+  XLSX.writeFile(wb, 'إيرادات الخزنة.xlsx');
+}
 
 /* تجميع السجلين (الصباحى والمسائى) إلى أعمدة توريد/إيصالات لكل بند، ومزامنتها تلقائيًا مع شيت توريد وإيصالات
    (لا تُعدَّل إلا البنود التى لها قيود مُدخلة بالفعل، حفاظًا على أى قيم أخرى أُدخلت يدويًا) */
@@ -1958,11 +2127,11 @@ function syncSupplyFromReceipts(){
   const m = getCurrentMonth(); if(!m || m.locked) return;
   const newSupply = m.supply.map(r=>[r[0], r[1], r[2], r[3], r[4]]);
   SERVICE_NAMES.forEach((name,idx)=>{
-    const morningCount = m.receiptLogMorning.filter(r=>(Number(r[SVC_OFFSET+idx])||0)>0).length;
-    const eveningCount = m.receiptLogEvening.filter(r=>(Number(r[SVC_OFFSET+idx])||0)>0).length;
+    const morningCount = m.receiptLogMorning.filter(r=>(Number(r.svc[idx])||0)>0).length;
+    const eveningCount = m.receiptLogEvening.filter(r=>(Number(r.svc[idx])||0)>0).length;
     if(morningCount===0 && eveningCount===0) return; // لا يوجد قيد بعد لهذا البند، اترك القيمة كما هى
-    const morningAmt = sumCol(m.receiptLogMorning, SVC_OFFSET+idx);
-    const eveningAmt = sumCol(m.receiptLogEvening, SVC_OFFSET+idx);
+    const morningAmt = m.receiptLogMorning.reduce((s,r)=> s + (Number(r.svc[idx])||0), 0);
+    const eveningAmt = m.receiptLogEvening.reduce((s,r)=> s + (Number(r.svc[idx])||0), 0);
     const rowIdx = newSupply.findIndex(r=>r[0]===name);
     if(rowIdx>-1){ newSupply[rowIdx] = [name, morningAmt, eveningAmt, morningCount, eveningCount]; }
     else { newSupply.push([name, morningAmt, eveningAmt, morningCount, eveningCount]); }
