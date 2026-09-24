@@ -103,6 +103,15 @@ body{font-family:'Noto Kufi Arabic',sans-serif;background:var(--bg);color:var(--
 .total-box .val{font-size:1.2rem;font-weight:900;color:#fff}
 
 .dist-card{background:var(--s2);border:1px solid var(--b);border-radius:12px;padding:13px;text-align:center;position:relative}
+/* بطاقات توزيع مستحقات الأقسام الخاصة */
+.dept-block{border-bottom:1px dashed var(--b);padding-bottom:16px;margin-bottom:16px}
+.dept-block-title{font-weight:900;font-size:.82rem;color:var(--p);margin-bottom:10px}
+.dept-stats{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px}
+.dept-stat{background:var(--s2);border:1px solid var(--b);border-radius:9px;padding:7px 12px;display:flex;flex-direction:column;gap:3px;min-width:110px}
+.dept-stat span{font-size:.66rem;font-weight:700;color:var(--tm)}
+.dept-stat b{font-size:.86rem;font-weight:900;color:var(--t)}
+.dept-stat.hi{background:rgba(193,120,23,.12);border-color:var(--al)}
+.dept-stat.hi b{color:var(--a)}
 .dist-card .dist-pct-input{width:70px;margin:0 auto 6px;text-align:center;font-size:1.15rem;font-weight:900;color:var(--a);border:1px solid transparent;background:transparent;font-family:inherit;border-radius:7px;padding:3px}
 .dist-card .dist-pct-input:hover,.dist-card .dist-pct-input:focus{border-color:var(--b);background:#fff;outline:none}
 .dist-card .dist-pct-locked{font-size:1.15rem;font-weight:900;color:var(--a);display:block;margin-bottom:6px}
@@ -384,6 +393,8 @@ function startRealtimeSync(){
         if(!m.dailyTotalsMorning || typeof m.dailyTotalsMorning!=='object') m.dailyTotalsMorning = {};
         if(!m.dailyTotalsEvening || typeof m.dailyTotalsEvening!=='object') m.dailyTotalsEvening = {};
         migrateMonthRowsToObjects(m);
+        if(!m.deptDist || typeof m.deptDist!=='object') m.deptDist = defaultDeptDist();
+        else { const dd = defaultDeptDist(); Object.keys(dd).forEach(k=>{ if(!m.deptDist[k]) m.deptDist[k] = dd[k]; }); }
       });
       if(!MONTHS.find(m=>m.id===currentMonthId)){
         currentMonthId = MONTHS.length ? MONTHS[MONTHS.length-1].id : null;
@@ -463,6 +474,69 @@ function setText(id,val){ const e=document.getElementById(id); if(e) e.textConte
 function getCurrentMonth(){ return MONTHS.find(m=>m.id===currentMonthId) || null; }
 
 /* ---------------- البيانات الأصلية (ثابتة ومقفولة) ---------------- */
+function defaultDeptDist(){
+  return {
+    lab: { income:0, supplies:0, maintenance:0 },
+    radiology: { income:0, supplies:0, maintenance:0 },
+    surgery: { income:0 },
+    icu: { income:0, drugs:0, supplies:0 },
+    clinicsMorning: { income:0 },
+    clinicsEvening: { income:0 }
+  };
+}
+
+/* --- حساب مستحقات الأقسام الخاصة (معمل/أشعة/جراحة وتخدير/رعاية مركزة/عيادات) حسب لائحة توزيع الصندوق،
+   وإجمالى ما يُخصم من الوعاء العام قبل تطبيق النسب العامة (2/1/2/42/34/15/2/2) --- */
+function computeDeptDistribution(m){
+  const d = (m && m.deptDist) || defaultDeptDist();
+  const lab = d.lab || {income:0,supplies:0,maintenance:0};
+  const rad = d.radiology || {income:0,supplies:0,maintenance:0};
+  const sur = d.surgery || {income:0};
+  const icu = d.icu || {income:0,drugs:0,supplies:0};
+  const cm = d.clinicsMorning || {income:0};
+  const ce = d.clinicsEvening || {income:0};
+
+  const labNet = Math.max(0, (Number(lab.income)||0) - (Number(lab.supplies)||0) - (Number(lab.maintenance)||0));
+  const labDoctors = labNet*0.05, labTechs = labNet*0.03, labNursing = labNet*0.02;
+  const labFee = labDoctors+labTechs+labNursing; // 10% إجمالاً
+
+  const radNet = Math.max(0, (Number(rad.income)||0) - (Number(rad.supplies)||0) - (Number(rad.maintenance)||0));
+  const radDoctors = radNet*0.06, radTechs = radNet*0.03, radNursing = radNet*0.01;
+  const radFee = radDoctors+radTechs+radNursing; // 10% إجمالاً
+
+  const surIncome = Number(sur.income)||0;
+  const surConsultant = surIncome*0.50, surSpecialist = surIncome*0.25, surAssistant = surIncome*0.10;
+  const surFee = surConsultant+surSpecialist+surAssistant; // 85% (النسبة كما وردت باللائحة)
+
+  const icuNet = Math.max(0, (Number(icu.income)||0) - (Number(icu.drugs)||0) - (Number(icu.supplies)||0));
+  const icuDoctors = icuNet*0.25;
+  const icuFee = icuDoctors; // 25%
+
+  const clinicsIncome = (Number(cm.income)||0) + (Number(ce.income)||0);
+  const clinicsDoctors = clinicsIncome*0.50, clinicsNursing = clinicsIncome*0.25, clinicsHospital = clinicsIncome*0.25;
+  const clinicsFee = clinicsDoctors+clinicsNursing; // 75% يُخصم — الـ25% الباقية "لصالح المستشفى" تبقى ضمن الوعاء العام ولا تُخصم
+
+  const totalDeptFees = labFee+radFee+surFee+icuFee+clinicsFee;
+
+  return {
+    lab:{ net:labNet, doctors:labDoctors, techs:labTechs, nursing:labNursing, fee:labFee },
+    radiology:{ net:radNet, doctors:radDoctors, techs:radTechs, nursing:radNursing, fee:radFee },
+    surgery:{ income:surIncome, consultant:surConsultant, specialist:surSpecialist, assistant:surAssistant, fee:surFee },
+    icu:{ net:icuNet, doctors:icuDoctors, fee:icuFee },
+    clinics:{ income:clinicsIncome, doctors:clinicsDoctors, nursing:clinicsNursing, hospital:clinicsHospital, fee:clinicsFee },
+    totalDeptFees
+  };
+}
+
+function updateDeptDistField(dept, field, value){
+  const m = getCurrentMonth(); if(!m || m.locked) return;
+  if(!m.deptDist) m.deptDist = defaultDeptDist();
+  if(!m.deptDist[dept]) m.deptDist[dept] = {};
+  m.deptDist[dept][field] = parseFloat(value)||0;
+  scheduleAutoSave();
+  renderSheet(); // لإعادة حساب كل الأرقام المرتبطة (نصيب كل فئة + الوعاء العام + بطاقات النسب)
+}
+
 function seedFromOriginal(){
   return SEED.periods.map(p=>({
     id: p.id,
@@ -479,6 +553,7 @@ function seedFromOriginal(){
     receiptLogMorning: [],
     receiptLogEvening: [],
     rowsAreObjects: true,
+    deptDist: defaultDeptDist(),
     lastGroup: '',
     booklet: { morning:{start:null,end:null,current:null}, evening:{start:null,end:null,current:null} }
   }));
@@ -486,12 +561,14 @@ function seedFromOriginal(){
 
 function defaultDistRows(){
   return [
-    ['50% للأطباء والعاملين بالمستشفى',50],
-    ['37% نفقات التشغيل المختلف بالمستشفى',37],
-    ['7% لدعم صندوق تحسين الخدمة بالمديرية',7],
-    ['2% لدعم صندوق تحسين بديوان عام وزارة الصحة والسكان',2],
-    ['2% لمديرية الشئون الصحية لدعم الدراسات العليا',2],
-    ['2% لدعم مشروعات بمراجعة قطاع الصحة والسكان',2]
+    ['مدير المستشفى',2],
+    ['وكلاء المستشفى والنواب',1],
+    ['مدير الاستقبال ومدير العيادات ورئيس الهيئة الطبية والمدير المالى والإدارى ورئيس التمريض ورؤساء الأقسام',2],
+    ['الأطباء',42],
+    ['هيئة التمريض',34],
+    ['الإداريون وباقى العاملين غير المذكورين',15],
+    ['مكافحة العدوى والترصد والسلامة والصحة المهنية',2],
+    ['مكافآت غير عادية لأصحاب الجهود غير العادية',2]
   ];
 }
 
@@ -586,6 +663,8 @@ async function init(){
     if(!m.dailyTotalsMorning || typeof m.dailyTotalsMorning!=='object') m.dailyTotalsMorning = {};
     if(!m.dailyTotalsEvening || typeof m.dailyTotalsEvening!=='object') m.dailyTotalsEvening = {};
     migrateMonthRowsToObjects(m);
+    if(!m.deptDist || typeof m.deptDist!=='object') m.deptDist = defaultDeptDist();
+    else { const dd = defaultDeptDist(); Object.keys(dd).forEach(k=>{ if(!m.deptDist[k]) m.deptDist[k] = dd[k]; }); }
     delete m.nextReceiptNo; // استُبدل بنظام الدفاتر لكل فترة
   });
 
@@ -707,6 +786,7 @@ function addMonth(){
     receiptLogMorning: [],
     receiptLogEvening: [],
     rowsAreObjects: true,
+    deptDist: defaultDeptDist(),
     lastGroup: '',
     booklet: { morning:{start:null,end:null,current:null}, evening:{start:null,end:null,current:null} }
   };
@@ -1009,6 +1089,17 @@ function renderSimpleSheet(m, arrName, title, colLabel){
 }
 
 /* --- شيت الإيرادات والتوزيع (صفحة واحدة) --- */
+/* --- بطاقة قسم واحد ضمن قسم "توزيع مستحقات الأقسام الخاصة" --- */
+function deptFieldInput(m, dept, field, label, value){
+  if(m.locked){
+    return `<div class="ef-field"><label>${label}</label><div class="locked-cell">${fmt(Number(value)||0)}</div></div>`;
+  }
+  return `<div class="ef-field"><label>${label}</label><input type="number" step="0.01" class="cell-input" style="border:1px solid var(--b);text-align:center" value="${value||''}" onchange="updateDeptDistField('${dept}','${field}',this.value)"></div>`;
+}
+function deptStat(label, value, highlight){
+  return `<div class="dept-stat${highlight?' hi':''}"><span>${label}</span><b class="num">${fmt(value)}</b></div>`;
+}
+
 function renderIncomeDistSheet(m){
   const rows = m.income;
   const incomeRowsHtml = rows.map((r,i)=>`<tr>
@@ -1027,6 +1118,9 @@ function renderIncomeDistSheet(m){
   const net = incomeTotal - expenseTotal;
   const pct15Val = m.deduct15 ? net*0.15 : 0;
   const distributable = net - pct15Val;
+  const dd = m.deptDist || defaultDeptDist();
+  const calc = computeDeptDistribution(m);
+  const generalRemainder = distributable - calc.totalDeptFees;
   const pctSum = sumCol(m.distRows,1);
   const warn = Math.abs(pctSum-100) > 0.05;
 
@@ -1042,7 +1136,7 @@ function renderIncomeDistSheet(m){
     </div>`;
 
   const cards = m.distRows.map((r,i)=>{
-    const val = distributable * (Number(r[1])||0) / 100;
+    const val = generalRemainder * (Number(r[1])||0) / 100;
     const pctPart = m.locked
       ? `<span class="dist-pct-locked">${r[1]}%</span>`
       : `<input class="cell-input dist-pct-input" type="number" step="0.1" data-arr="distRows" data-idx="${i}" data-col="1" value="${r[1]}">%`;
@@ -1072,6 +1166,86 @@ function renderIncomeDistSheet(m){
   </div>
 
   <div class="sheet-card">
+    <h2>توزيع مستحقات الأقسام الخاصة (حسب لائحة توزيع الصندوق)</h2>
+    <div style="font-size:.72rem;font-weight:700;color:var(--tm);margin-bottom:16px;line-height:1.7">
+      كل قسم من الأقسام دى ليه نسبة تُصرف مباشرة لفريقه من إيراده الخاص، وده اللى بيتخصم من "الوعاء العام" قبل توزيعه بالنسب العامة أسفل الصفحة. اترك الحقول صفر لو القسم مش موجود عندك.
+    </div>
+
+    <div class="dept-block">
+      <div class="dept-block-title">🧪 المعمل — 10% من (الإيراد − المستلزمات − الصيانة)</div>
+      <div class="entry-form-grid">
+        ${deptFieldInput(m,'lab','income','إيراد المعمل',dd.lab.income)}
+        ${deptFieldInput(m,'lab','supplies','قيمة المستلزمات',dd.lab.supplies)}
+        ${deptFieldInput(m,'lab','maintenance','قيمة الصيانة',dd.lab.maintenance)}
+      </div>
+      <div class="dept-stats">
+        ${deptStat('الصافى', calc.lab.net)}
+        ${deptStat('الأطباء (5%)', calc.lab.doctors)}
+        ${deptStat('الفنيين (3%)', calc.lab.techs)}
+        ${deptStat('التمريض (2%)', calc.lab.nursing)}
+        ${deptStat('إجمالى المخصوم', calc.lab.fee, true)}
+      </div>
+    </div>
+
+    <div class="dept-block">
+      <div class="dept-block-title">📷 الأشعة — 10% من (الإيراد − المستلزمات − الصيانة)</div>
+      <div class="entry-form-grid">
+        ${deptFieldInput(m,'radiology','income','إيراد الأشعة',dd.radiology.income)}
+        ${deptFieldInput(m,'radiology','supplies','قيمة المستلزمات',dd.radiology.supplies)}
+        ${deptFieldInput(m,'radiology','maintenance','قيمة الصيانة',dd.radiology.maintenance)}
+      </div>
+      <div class="dept-stats">
+        ${deptStat('الصافى', calc.radiology.net)}
+        ${deptStat('الأطباء (6%)', calc.radiology.doctors)}
+        ${deptStat('الفنيين (3%)', calc.radiology.techs)}
+        ${deptStat('التمريض (1%)', calc.radiology.nursing)}
+        ${deptStat('إجمالى المخصوم', calc.radiology.fee, true)}
+      </div>
+    </div>
+
+    <div class="dept-block">
+      <div class="dept-block-title">🔪 الجراحة والتخدير — يُوزَّع حسب الدرجة</div>
+      <div class="entry-form-grid">
+        ${deptFieldInput(m,'surgery','income','إيراد الجراحة والتخدير',dd.surgery.income)}
+      </div>
+      <div class="dept-stats">
+        ${deptStat('استشارى (50%)', calc.surgery.consultant)}
+        ${deptStat('أخصائى (25%)', calc.surgery.specialist)}
+        ${deptStat('مساعد أخصائى (10%)', calc.surgery.assistant)}
+        ${deptStat('إجمالى المخصوم', calc.surgery.fee, true)}
+      </div>
+    </div>
+
+    <div class="dept-block">
+      <div class="dept-block-title">🫀 الرعاية المركزة — 25% من (دخل الوحدة − الأدوية − المستلزمات) للأطباء</div>
+      <div class="entry-form-grid">
+        ${deptFieldInput(m,'icu','income','إيراد الوحدة',dd.icu.income)}
+        ${deptFieldInput(m,'icu','drugs','قيمة الأدوية',dd.icu.drugs)}
+        ${deptFieldInput(m,'icu','supplies','قيمة المستلزمات',dd.icu.supplies)}
+      </div>
+      <div class="dept-stats">
+        ${deptStat('الصافى', calc.icu.net)}
+        ${deptStat('الأطباء (25%)', calc.icu.doctors)}
+        ${deptStat('إجمالى المخصوم', calc.icu.fee, true)}
+      </div>
+    </div>
+
+    <div class="dept-block" style="border-bottom:none;margin-bottom:0;padding-bottom:0">
+      <div class="dept-block-title">🏥 العيادات الصباحية والمسائية — أطباء 50%، تمريض 25%، والباقى 25% لصالح المستشفى (لا يُخصم)</div>
+      <div class="entry-form-grid">
+        ${deptFieldInput(m,'clinicsMorning','income','إيراد العيادة الصباحية',dd.clinicsMorning.income)}
+        ${deptFieldInput(m,'clinicsEvening','income','إيراد العيادة المسائية',dd.clinicsEvening.income)}
+      </div>
+      <div class="dept-stats">
+        ${deptStat('الأطباء (50%)', calc.clinics.doctors)}
+        ${deptStat('التمريض (25%)', calc.clinics.nursing)}
+        ${deptStat('لصالح المستشفى (25%)', calc.clinics.hospital)}
+        ${deptStat('إجمالى المخصوم', calc.clinics.fee, true)}
+      </div>
+    </div>
+  </div>
+
+  <div class="sheet-card">
     <h2>حساب صافى الإيراد القابل للتوزيع</h2>
     <table class="tbl" style="margin-top:14px">
       <tbody>
@@ -1080,13 +1254,15 @@ function renderIncomeDistSheet(m){
         <tr><td style="font-weight:900">صافى الإيراد (الإيراد − المنصرف)</td><td class="num" style="font-weight:900;color:var(--p)">${fmt(net)}</td></tr>
         <tr><td>${deduct15Cell}</td><td class="num">${fmt(pct15Val)}</td></tr>
         <tr><td style="font-weight:900">القابل للتوزيع</td><td class="num" style="font-weight:900;color:var(--a)">${fmt(distributable)}</td></tr>
+        <tr><td>إجمالى مستحقات الأقسام الخاصة (معمل/أشعة/جراحة/رعاية مركزة/عيادات)</td><td class="num" style="color:var(--er)">− ${fmt(calc.totalDeptFees)}</td></tr>
+        <tr><td style="font-weight:900">الوعاء العام القابل للتوزيع بالنسب أدناه</td><td class="num" style="font-weight:900;color:var(--a)">${fmt(generalRemainder)}</td></tr>
       </tbody>
     </table>
   </div>
 
   <div class="sheet-card">
     <div class="sheet-card-head">
-      <h2>نسب توزيع المبلغ القابل للتوزيع</h2>
+      <h2>نسب توزيع الوعاء العام</h2>
       ${distBtns}
     </div>
     <div class="pct-sum-note ${warn?'warn':''}" id="pct-sum-note">إجمالى النسب الحالى: ${pctSum.toFixed(1)}% ${warn?'⚠ يفضل أن يكون المجموع 100%':'✓'}</div>
@@ -1108,11 +1284,12 @@ function recalcDist(){
   const incomeTotal = sumCol(m.income,1);
   const expenseTotal = sumCol(m.expense,1);
   const net = incomeTotal - expenseTotal;
-  const distributable = net - (m.deduct15 ? net*0.15 : 0);
+  const calc = computeDeptDistribution(m);
+  const generalRemainder = net - (m.deduct15 ? net*0.15 : 0) - calc.totalDeptFees;
   const pctSum = sumCol(m.distRows,1);
   const warn = Math.abs(pctSum-100) > 0.05;
   m.distRows.forEach((r,i)=>{
-    const val = distributable * (Number(r[1])||0) / 100;
+    const val = generalRemainder * (Number(r[1])||0) / 100;
     setText('dist-val-'+i, fmt(val));
   });
   const note = document.getElementById('pct-sum-note');
