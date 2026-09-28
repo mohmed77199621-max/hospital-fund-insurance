@@ -2416,6 +2416,8 @@ function ensurePeopleDist(m){
     pd.clinicDepts = [{ dept:'', days: hasOld ? Object.assign({}, pd.clinicGroups) : {} }];
   }
   if(!Array.isArray(pd.rows)) pd.rows = [];
+  if(!pd.pool || typeof pd.pool!=='object') pd.pool = {};
+  if(!pd.groupPool || typeof pd.groupPool!=='object') pd.groupPool = {};
   return pd;
 }
 
@@ -2427,6 +2429,11 @@ function computeGeneralRemainder(m){
   return { calc, generalRemainder: distributable - calc.totalDeptFees };
 }
 
+/* الوعاء المتاح يدوى: null لو لسه ما اتكتبش */
+function peoplePoolVal(pd, k){
+  const v = pd.pool && pd.pool[k];
+  return (v===undefined || v===null || v==='') ? null : Number(v)||0;
+}
 function peopleRowTotal(r){
   return PEOPLE_ALL_COLS.reduce((s,c)=> s + (Number(r.v && r.v[c.k])||0), 0);
 }
@@ -2500,9 +2507,32 @@ function renderPeopleSheet(m){
     </tr>`).join('') || `<tr><td colspan="${5+PEOPLE_ALL_COLS.length+2}" style="color:var(--tm);font-weight:600">لا توجد بيانات بعد${locked?'':' — اضغط "➕ إضافة شخص"'}</td></tr>`;
 
   /* --- صفوف التذييل: الوعاء المتاح / الموزَّع فعلًا / المتبقى --- */
-  const poolCells = PEOPLE_ALL_COLS.map(c=>`<td class="num pd-pool">${c.pool ? fmtNum(c.pool(calc, generalRemainder)) : '—'}</td>`).join('');
+  const poolCells = PEOPLE_ALL_COLS.map(c=>{
+    const pv = peoplePoolVal(pd, c.k);
+    if(locked) return `<td class="num pd-pool">${pv===null ? '' : fmtNum(pv)}</td>`;
+    const hint = c.pool ? `المقترح من صفحة الإيرادات والتوزيع: ${fmtNum(c.pool(calc, generalRemainder))}` : 'اكتب الوعاء المتاح لهذا العمود';
+    return `<td class="pd-pool"><input type="number" step="0.01" class="cell-input" style="border:1px solid var(--b);text-align:center;min-width:84px;font-weight:900" title="${escapeHtml(hint)}" value="${pv===null ? '' : pv}" onchange="updatePeoplePool('${c.k}',this.value)"></td>`;
+  }).join('');
   const distCells = PEOPLE_ALL_COLS.map(c=>`<td class="num" id="pd-dist-${c.k}">${fmtNum(pd.rows.reduce((s,r)=>s+(Number(r.v&&r.v[c.k])||0),0))}</td>`).join('');
-  const remCells  = PEOPLE_ALL_COLS.map(c=>`<td class="num" id="pd-rem-${c.k}">${c.pool ? '' : '—'}</td>`).join('');
+  const remCells  = PEOPLE_ALL_COLS.map(c=>{
+    const pv = peoplePoolVal(pd, c.k);
+    if(pv===null) return `<td class="num" id="pd-rem-${c.k}"></td>`;
+    const rem = pv - pd.rows.reduce((s,r)=>s+(Number(r.v&&r.v[c.k])||0),0);
+    const neg = rem < -0.005;
+    return `<td class="num" id="pd-rem-${c.k}" style="${neg?'color:var(--er);font-weight:900':''}">${fmtNum(rem)}</td>`;
+  }).join('');
+  const groupPoolCells = PEOPLE_GROUPS.map(g=>{
+    const gk = g.cols[0].k;
+    const gname = g.title.split('—')[0].trim();
+    const raw = pd.groupPool[gk];
+    const gv = (raw===undefined || raw===null || raw==='') ? null : (Number(raw)||0);
+    const label = `<div style="font-size:.6rem;font-weight:800;margin-bottom:3px;white-space:normal">الوعاء المتاح: ${escapeHtml(gname)}</div>`;
+    if(locked) return `<td colspan="${g.cols.length}" class="pd-pool" style="text-align:center">${label}<b class="num">${gv===null ? '' : fmtNum(gv)}</b></td>`;
+    const sugg = g.cols.reduce((s,c)=> s + (c.pool ? (Number(c.pool(calc, generalRemainder))||0) : 0), 0);
+    const hint = `المقترح من صفحة الإيرادات والتوزيع: ${fmtNum(sugg)}`;
+    return `<td colspan="${g.cols.length}" class="pd-pool" style="text-align:center">${label}<input type="number" step="0.01" class="cell-input" style="border:1px solid var(--b);text-align:center;max-width:170px;font-weight:900" title="${escapeHtml(hint)}" value="${gv===null ? '' : gv}" onchange="updatePeopleGroupPool('${gk}',this.value)"></td>`;
+  }).join('');
+  const poolTotal = PEOPLE_ALL_COLS.reduce((s,c)=> s + (peoplePoolVal(pd,c.k)||0), 0);
   const grandDist = pd.rows.reduce((s,r)=>s+peopleRowTotal(r),0);
 
   const btns = locked ? '' : `<div class="head-btns no-print">
@@ -2551,21 +2581,20 @@ function renderPeopleSheet(m){
       ${btns}
     </div>
     <div style="font-size:.72rem;font-weight:700;color:var(--tm);margin-bottom:12px;line-height:1.7">
-      الوعاء المتاح لكل عمود بيتحسب تلقائيًا من صفحة "الإيرادات والتوزيع". اكتب نصيب كل شخص فى العمود المناسب، وصف "المتبقى" بيوضح الفرق بين الوعاء وما تم توزيعه (لو ظهر بالأحمر يبقى الموزَّع أكبر من الوعاء).
+      اكتب "الوعاء المتاح" لكل مجموعة (المعمل، الأشعة، ...) فى الخانة اللى فوق اسمها، ولكل عمود فى الصفوف اللى تحتها، بنفسك (لو وقفت بالماوس على الخانة هتشوف المبلغ المقترح من صفحة "الإيرادات والتوزيع"). بعدها اكتب نصيب كل شخص فى العمود المناسب، وصف "المتبقى" بيوضح الفرق بين الوعاء وما تم توزيعه (لو ظهر بالأحمر يبقى الموزَّع أكبر من الوعاء).
       <br>الوعاء العام المتبقى بعد خصم مستحقات الأقسام: <b class="num" style="color:var(--a)">${fmtNum(generalRemainder)}</b>
     </div>
     <div style="overflow-x:auto">
     <table class="tbl wide-log-tbl people-dist-tbl bordered-tbl">
       <thead>
-        <tr><th rowspan="2" style="width:40px">م</th><th rowspan="2" style="background:#fff59d">الرقم القومى</th><th rowspan="2" style="background:#fff59d">الاسم</th><th rowspan="2" style="background:#fff59d">التخصص</th><th rowspan="2" style="background:#fff59d">القسم</th>${groupHead}<th rowspan="2">إجمالى الشخص</th><th rowspan="2" class="no-print"></th></tr>
-        <tr>${colHead}</tr>
+        <tr class="pd-foot"><td colspan="5">الوعاء المتاح للمجموعة (إدخال يدوى)</td>${groupPoolCells}<td class="no-print" colspan="2"></td></tr>
+        <tr><td colspan="5" style="background:var(--s2)"></td>${groupHead}<td></td><td class="no-print"></td></tr>
+        <tr class="pd-foot"><td colspan="5">الوعاء المتاح لكل عمود (إدخال يدوى)</td>${poolCells}<td class="num" id="pd-pool-total">${fmtNum(poolTotal)}</td><td class="no-print"></td></tr>
+        <tr class="pd-foot"><td colspan="5"><span id="pd-count-lbl">الموزَّع فعلًا (${pd.rows.length} شخص)</span></td>${distCells}<td class="num" id="pd-grand">${fmtNum(grandDist)}</td><td class="no-print"></td></tr>
+        <tr class="pd-foot"><td colspan="5">المتبقى غير الموزَّع</td>${remCells}<td class="num" id="pd-rem-total">${fmtNum(poolTotal-grandDist)}</td><td class="no-print"></td></tr>
+        <tr><th style="width:40px">م</th><th style="background:#fff59d">الرقم القومى</th><th style="background:#fff59d">الاسم</th><th style="background:#fff59d">التخصص</th><th style="background:#fff59d">القسم</th>${colHead}<th>إجمالى الشخص</th><th class="no-print"></th></tr>
       </thead>
       <tbody>${bodyHtml}</tbody>
-      <tfoot>
-        <tr class="pd-foot"><td colspan="5">الوعاء المتاح</td>${poolCells}<td class="num">—</td><td class="no-print"></td></tr>
-        <tr class="pd-foot"><td colspan="5">الموزَّع فعلًا (${pd.rows.length} شخص)</td>${distCells}<td class="num" id="pd-grand">${fmtNum(grandDist)}</td><td class="no-print"></td></tr>
-        <tr class="pd-foot"><td colspan="5">المتبقى غير الموزَّع</td>${remCells}<td class="num">—</td><td class="no-print"></td></tr>
-      </tfoot>
     </table>
     </div>
   </div>
@@ -2584,21 +2613,45 @@ function renderPeopleSheet(m){
 function recalcPeopleDist(){
   const m = getCurrentMonth(); if(!m) return;
   const pd = ensurePeopleDist(m);
-  const { calc, generalRemainder } = computeGeneralRemainder(m);
   pd.rows.forEach((r,i)=> setText('pd-rt-'+i, fmtNum(peopleRowTotal(r))));
+  let poolTotal = 0;
   PEOPLE_ALL_COLS.forEach(c=>{
     const dist = pd.rows.reduce((s,r)=>s+(Number(r.v&&r.v[c.k])||0),0);
     setText('pd-dist-'+c.k, fmtNum(dist));
+    const pv = peoplePoolVal(pd, c.k);
+    poolTotal += pv||0;
     const remEl = document.getElementById('pd-rem-'+c.k);
-    if(remEl && c.pool){
-      const rem = c.pool(calc, generalRemainder) - dist;
-      remEl.textContent = fmtNum(rem);
-      remEl.style.color = rem < -0.005 ? 'var(--er)' : '';
-      remEl.style.fontWeight = rem < -0.005 ? '900' : '';
+    if(remEl){
+      if(pv===null){ remEl.textContent = ''; remEl.style.color = ''; remEl.style.fontWeight = ''; }
+      else {
+        const rem = pv - dist;
+        remEl.textContent = fmtNum(rem);
+        remEl.style.color = rem < -0.005 ? 'var(--er)' : '';
+        remEl.style.fontWeight = rem < -0.005 ? '900' : '';
+      }
     }
   });
-  setText('pd-grand', fmtNum(pd.rows.reduce((s,r)=>s+peopleRowTotal(r),0)));
+  const grand = pd.rows.reduce((s,r)=>s+peopleRowTotal(r),0);
+  setText('pd-grand', fmtNum(grand));
+  setText('pd-pool-total', fmtNum(poolTotal));
+  setText('pd-rem-total', fmtNum(poolTotal - grand));
+  setText('pd-count-lbl', 'الموزَّع فعلًا ('+pd.rows.length+' شخص)');
   setText('pd-off-total', fmtNum(pd.officials.reduce((s,o)=>s+(Number(o.amount)||0),0)));
+}
+function updatePeopleGroupPool(k, value){
+  const m = getCurrentMonth(); if(!m || m.locked) return;
+  const pd = ensurePeopleDist(m);
+  const v = String(value).trim();
+  if(v==='') delete pd.groupPool[k]; else pd.groupPool[k] = parseFloat(v)||0;
+  scheduleAutoSave();
+}
+function updatePeoplePool(k, value){
+  const m = getCurrentMonth(); if(!m || m.locked) return;
+  const pd = ensurePeopleDist(m);
+  const v = String(value).trim();
+  if(v==='') delete pd.pool[k]; else pd.pool[k] = parseFloat(v)||0;
+  scheduleAutoSave();
+  recalcPeopleDist();
 }
 
 function updatePeopleOfficial(i, field, value){
