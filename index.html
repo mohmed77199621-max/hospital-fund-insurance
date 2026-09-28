@@ -112,6 +112,10 @@ body{font-family:'Noto Kufi Arabic',sans-serif;background:var(--bg);color:var(--
 .dept-stat b{font-size:.86rem;font-weight:900;color:var(--t)}
 .dept-stat.hi{background:rgba(193,120,23,.12);border-color:var(--al)}
 .dept-stat.hi b{color:var(--a)}
+/* جدول توزيع الأشخاص */
+.people-dist-tbl th{text-align:center;vertical-align:middle}
+.people-dist-tbl td.pd-pool{background:#fff8e1;font-weight:800}
+.people-dist-tbl tr.pd-foot td{font-weight:900;background:var(--s2)}
 .dist-card .dist-pct-input{width:70px;margin:0 auto 6px;text-align:center;font-size:1.15rem;font-weight:900;color:var(--a);border:1px solid transparent;background:transparent;font-family:inherit;border-radius:7px;padding:3px}
 .dist-card .dist-pct-input:hover,.dist-card .dist-pct-input:focus{border-color:var(--b);background:#fff;outline:none}
 .dist-card .dist-pct-locked{font-size:1.15rem;font-weight:900;color:var(--a);display:block;margin-bottom:6px}
@@ -481,7 +485,9 @@ function defaultDeptDist(){
     surgery: { income:0 },
     icu: { income:0, drugs:0, supplies:0 },
     clinicsMorning: { income:0 },
-    clinicsEvening: { income:0 }
+    clinicsEvening: { income:0 },
+    ultrasound: { income:0, supplies:0 },
+    clinicsBooks: { expense:0 }
   };
 }
 
@@ -495,6 +501,8 @@ function computeDeptDistribution(m){
   const icu = d.icu || {income:0,drugs:0,supplies:0};
   const cm = d.clinicsMorning || {income:0};
   const ce = d.clinicsEvening || {income:0};
+  const us = d.ultrasound || {income:0,supplies:0};
+  const cb = d.clinicsBooks || {expense:0};
 
   const labNet = Math.max(0, (Number(lab.income)||0) - (Number(lab.supplies)||0) - (Number(lab.maintenance)||0));
   const labDoctors = labNet*0.05, labTechs = labNet*0.03, labNursing = labNet*0.02;
@@ -512,18 +520,25 @@ function computeDeptDistribution(m){
   const icuDoctors = icuNet*0.25;
   const icuFee = icuDoctors; // 25%
 
-  const clinicsIncome = (Number(cm.income)||0) + (Number(ce.income)||0);
+  const usNet = Math.max(0, (Number(us.income)||0) - (Number(us.supplies)||0));
+  const usConsultant = usNet*0.25; // 25% لاستشارى الأشعة من صافى الموجات فوق الصوتية
+  const usFee = usConsultant;
+
+  const clinicsGross = (Number(cm.income)||0) + (Number(ce.income)||0);
+  const clinicsBooksExpense = Number(cb.expense)||0;
+  const clinicsIncome = Math.max(0, clinicsGross - clinicsBooksExpense); // إجمالى العيادات بعد خصم منصرف الدفاتر
   const clinicsDoctors = clinicsIncome*0.50, clinicsNursing = clinicsIncome*0.25, clinicsHospital = clinicsIncome*0.25;
   const clinicsFee = clinicsDoctors+clinicsNursing; // 75% يُخصم — الـ25% الباقية "لصالح المستشفى" تبقى ضمن الوعاء العام ولا تُخصم
 
-  const totalDeptFees = labFee+radFee+surFee+icuFee+clinicsFee;
+  const totalDeptFees = labFee+radFee+usFee+surFee+icuFee+clinicsFee;
 
   return {
     lab:{ net:labNet, doctors:labDoctors, techs:labTechs, nursing:labNursing, fee:labFee },
     radiology:{ net:radNet, doctors:radDoctors, techs:radTechs, nursing:radNursing, fee:radFee },
+    ultrasound:{ net:usNet, consultant:usConsultant, fee:usFee },
     surgery:{ income:surIncome, consultant:surConsultant, specialist:surSpecialist, assistant:surAssistant, fee:surFee },
     icu:{ net:icuNet, doctors:icuDoctors, fee:icuFee },
-    clinics:{ income:clinicsIncome, doctors:clinicsDoctors, nursing:clinicsNursing, hospital:clinicsHospital, fee:clinicsFee },
+    clinics:{ gross:clinicsGross, books:clinicsBooksExpense, income:clinicsIncome, doctors:clinicsDoctors, nursing:clinicsNursing, hospital:clinicsHospital, fee:clinicsFee },
     totalDeptFees
   };
 }
@@ -1042,6 +1057,7 @@ function renderSheet(){
   }
   container.innerHTML = lockBanner + html;
   bindLiveInputs();
+  if(currentSheet==='people') recalcPeopleDist();
   if((currentSheet==='receiptEntryMorning' || currentSheet==='receiptEntryEvening') && !m.locked){
     refreshEntryAvailability();
     updateReceiptSummaryPanel();
@@ -1118,7 +1134,7 @@ function renderIncomeDistSheet(m){
   const net = incomeTotal - expenseTotal;
   const pct15Val = m.deduct15 ? net*0.15 : 0;
   const distributable = net - pct15Val;
-  const dd = m.deptDist || defaultDeptDist();
+  const dd = Object.assign(defaultDeptDist(), m.deptDist || {});
   const calc = computeDeptDistribution(m);
   const generalRemainder = distributable - calc.totalDeptFees;
   const pctSum = sumCol(m.distRows,1);
@@ -1204,6 +1220,19 @@ function renderIncomeDistSheet(m){
     </div>
 
     <div class="dept-block">
+      <div class="dept-block-title">🩻 الموجات فوق الصوتية — 25% من (الإيراد − المستلزمات) لاستشارى الأشعة</div>
+      <div class="entry-form-grid">
+        ${deptFieldInput(m,'ultrasound','income','إيراد الموجات فوق الصوتية',dd.ultrasound.income)}
+        ${deptFieldInput(m,'ultrasound','supplies','المستلزمات',dd.ultrasound.supplies)}
+      </div>
+      <div class="dept-stats">
+        ${deptStat('الصافى', calc.ultrasound.net)}
+        ${deptStat('استشارى الأشعة (25%)', calc.ultrasound.consultant)}
+        ${deptStat('إجمالى المخصوم', calc.ultrasound.fee, true)}
+      </div>
+    </div>
+
+    <div class="dept-block">
       <div class="dept-block-title">🔪 الجراحة والتخدير — يُوزَّع حسب الدرجة</div>
       <div class="entry-form-grid">
         ${deptFieldInput(m,'surgery','income','إيراد الجراحة والتخدير',dd.surgery.income)}
@@ -1235,8 +1264,10 @@ function renderIncomeDistSheet(m){
       <div class="entry-form-grid">
         ${deptFieldInput(m,'clinicsMorning','income','إيراد العيادة الصباحية',dd.clinicsMorning.income)}
         ${deptFieldInput(m,'clinicsEvening','income','إيراد العيادة المسائية',dd.clinicsEvening.income)}
+        ${deptFieldInput(m,'clinicsBooks','expense','منصرف دفاتر العيادات',dd.clinicsBooks.expense)}
       </div>
       <div class="dept-stats">
+        ${deptStat('إجمالى العيادات بعد خصم الدفاتر', calc.clinics.income)}
         ${deptStat('الأطباء (50%)', calc.clinics.doctors)}
         ${deptStat('التمريض (25%)', calc.clinics.nursing)}
         ${deptStat('لصالح المستشفى (25%)', calc.clinics.hospital)}
@@ -2361,7 +2392,7 @@ function recalcDaftar(){
 }
 
 /* --- شيت توزيع الأشخاص --- */
-function renderPeopleSheet(m){
+function renderPeopleLegacy(m){
   const rows = m.people;
   const rowsHtml = rows.map((r,i)=>{
     const total = (Number(r[1])||0)+(Number(r[2])||0)+(Number(r[3])||0)+(Number(r[4])||0)+(Number(r[5])||0);
@@ -2422,6 +2453,263 @@ function renderPeopleSheet(m){
     </div>
   </div>`;
 }
+/* ============================================================
+   صفحة توزيع الأشخاص — بنفس شكل ملف الإكسل: كبار المسئولين + ملخص الأوعية + مصفوفة (شخص × بند توزيع)
+   ============================================================ */
+const PEOPLE_OFFICIALS_DEFAULT = ['مدير المستشفى','وكيل المستشفى','رئيس الهيئة الطبية','مدير الصيدلة','المدير المالى والإدارى','رئيس هيئة التمريض','أحد الشخصيات العامة'];
+const PEOPLE_DAYS = [['sat','السبت'],['sun','الأحد'],['mon','الاثنين'],['tue','الثلاثاء'],['wed','الأربعاء'],['thu','الخميس']];
+/* مجموعات الأعمدة (الألوان بنفس ألوان الإكسل) — pool: دالة تحسب الوعاء المتاح للعمود (أو null لو الإدخال يدوى بدون وعاء) */
+const PEOPLE_GROUPS = [
+  { title:'المعمل — 10% من الصافى', color:'#e53935', cols:[
+    {k:'lab_doc',  label:'5% أطباء',   pool:(c)=>c.lab.doctors},
+    {k:'lab_tech', label:'3% فنيين',   pool:(c)=>c.lab.techs},
+    {k:'lab_nurse',label:'2% تمريض',   pool:(c)=>c.lab.nursing} ]},
+  { title:'الأشعة — 10% من الصافى', color:'#2e9e5b', cols:[
+    {k:'rad_doc',  label:'6% أطباء',   pool:(c)=>c.radiology.doctors},
+    {k:'rad_tech', label:'3% فنيين',   pool:(c)=>c.radiology.techs},
+    {k:'rad_nurse',label:'1% تمريض',   pool:(c)=>c.radiology.nursing},
+    {k:'us_cons',  label:'استشارى الأشعة (موجات 25%)', pool:(c)=>c.ultrasound.consultant} ]},
+  { title:'الجراحة والتخدير', color:'#455a64', cols:[
+    {k:'sur_cons', label:'استشارى جراح 50%', pool:(c)=>c.surgery.consultant},
+    {k:'sur_spec', label:'أخصائى جراح 25%',  pool:(c)=>c.surgery.specialist},
+    {k:'sur_asst', label:'مساعد جراح 10%',   pool:(c)=>c.surgery.assistant},
+    {k:'an_cons',  label:'استشارى تخدير',    pool:null},
+    {k:'an_spec',  label:'أخصائى تخدير',     pool:null} ]},
+  { title:'الرعاية المركزة', color:'#6a1b9a', cols:[
+    {k:'icu_doc',  label:'الأطباء 25%', pool:(c)=>c.icu.doctors} ]},
+  { title:'العيادات', color:'#ef6c00', cols:[
+    {k:'cl_doc',   label:'50% أطباء',  pool:(c)=>c.clinics.doctors},
+    {k:'cl_nurse', label:'25% تمريض',  pool:(c)=>c.clinics.nursing} ]},
+  { title:'المتبقى — الوعاء العام', color:'#0070c0', cols:[
+    {k:'g_mgr',   label:'مدير المستشفى 2%',        pool:(c,r)=>r*0.02},
+    {k:'g_dep',   label:'وكيل ونواب المدير 1%',     pool:(c,r)=>r*0.01},
+    {k:'g_heads', label:'مدير الاستقبال والطوارئ والعيادات ورئيس المجلس الطبى والمدير المالى والإدارى ورئيس التمريض ورؤساء الأقسام 2%', pool:(c,r)=>r*0.02},
+    {k:'g_doc',   label:'الأطباء البشريين والصيادلة والأسنان والعلاج الطبيعى 42%', pool:(c,r)=>r*0.42},
+    {k:'g_nurse', label:'هيئة التمريض 34%',         pool:(c,r)=>r*0.34},
+    {k:'g_admin', label:'إداريين وفنيين وعمال 15%',  pool:(c,r)=>r*0.15},
+    {k:'g_inf',   label:'مكافحة عدوى وترصد وسلامة وصحة مهنية 2%', pool:(c,r)=>r*0.02},
+    {k:'g_bonus', label:'مكافآت جهود غير عادية 2%',  pool:(c,r)=>r*0.02} ]}
+];
+const PEOPLE_ALL_COLS = PEOPLE_GROUPS.reduce((a,g)=>a.concat(g.cols),[]);
+
+function ensurePeopleDist(m){
+  if(!m.peopleDist || typeof m.peopleDist!=='object') m.peopleDist = {};
+  const pd = m.peopleDist;
+  if(!Array.isArray(pd.officials) || !pd.officials.length){
+    pd.officials = PEOPLE_OFFICIALS_DEFAULT.map(role=>({role, nid:'', name:'', amount:300}));
+  }
+  if(!pd.clinicGroups || typeof pd.clinicGroups!=='object') pd.clinicGroups = {};
+  if(!Array.isArray(pd.rows)) pd.rows = [];
+  return pd;
+}
+
+/* الوعاء العام = القابل للتوزيع − إجمالى مستحقات الأقسام الخاصة */
+function computeGeneralRemainder(m){
+  const net = sumCol(m.income,1) - sumCol(m.expense,1);
+  const distributable = net - (m.deduct15 ? net*0.15 : 0);
+  const calc = computeDeptDistribution(m);
+  return { calc, generalRemainder: distributable - calc.totalDeptFees };
+}
+
+function peopleRowTotal(r){
+  return PEOPLE_ALL_COLS.reduce((s,c)=> s + (Number(r.v && r.v[c.k])||0), 0);
+}
+
+function renderPeopleSheet(m){
+  const pd = ensurePeopleDist(m);
+  const { calc, generalRemainder } = computeGeneralRemainder(m);
+  const locked = !!m.locked;
+
+  /* --- كبار المسئولين --- */
+  const offRows = pd.officials.map((o,i)=>{
+    const f = (field, type, extra='')=> locked
+      ? `<span class="locked-cell">${escapeHtml(o[field])}</span>`
+      : (type==='num'
+          ? `<input type="number" step="0.01" class="cell-input" style="border:1px solid var(--b);text-align:center" value="${escapeHtml(o[field]===undefined?'':o[field])}" onchange="updatePeopleOfficial(${i},'${field}',this.value)">`
+          : `<input class="cell-input name-input" style="border:1px solid var(--b)" value="${escapeHtml(o[field]===undefined?'':o[field])}" onchange="updatePeopleOfficial(${i},'${field}',this.value)" ${extra}>`);
+    return `<tr>
+      <td class="num">${i+1}</td>
+      <td>${f('nid','text','placeholder="الرقم القومى"')}</td>
+      <td>${f('name','text','placeholder="الاسم"')}</td>
+      <td style="font-weight:800;background:#fff9c4">${escapeHtml(o.role)}</td>
+      <td>${f('amount','num')}</td>
+    </tr>`;
+  }).join('');
+  const offTotal = pd.officials.reduce((s,o)=> s + (Number(o.amount)||0), 0);
+
+  /* --- المجموعة حسب العيادات (السبت ... الخميس) --- */
+  const daysHtml = PEOPLE_DAYS.map(([k,lbl])=>`<div class="ef-field"><label>${lbl}</label>${
+    locked ? `<div class="locked-cell">${escapeHtml(pd.clinicGroups[k]||'')}</div>`
+           : `<input class="cell-input" style="border:1px solid var(--b);text-align:center" value="${escapeHtml(pd.clinicGroups[k]||'')}" onchange="updatePeopleClinicGroup('${k}',this.value)">`
+  }</div>`).join('');
+
+  /* --- رؤوس الجدول الرئيسى (صفان مثل الإكسل) --- */
+  const groupHead = PEOPLE_GROUPS.map(g=>`<th colspan="${g.cols.length}" style="background:${g.color};color:#fff">${escapeHtml(g.title)}</th>`).join('');
+  const colHead = PEOPLE_GROUPS.map(g=> g.cols.map(c=>`<th style="background:${g.color};color:#fff;min-width:96px;white-space:normal;font-size:.62rem">${escapeHtml(c.label)}</th>`).join('')).join('');
+
+  /* --- صفوف الأشخاص --- */
+  const numCell = (r,i,c,g)=> locked
+    ? `<td class="num">${(Number(r.v&&r.v[c.k])||0)?fmtNum(Number(r.v[c.k])):''}</td>`
+    : `<td><input type="number" step="0.01" class="cell-input" style="border:1px solid var(--b);text-align:center;min-width:84px" value="${(r.v&&r.v[c.k])||''}" onchange="updatePeopleCell(${i},'${c.k}',this.value)"></td>`;
+  const txtCell = (r,i,field,ph,w)=> locked
+    ? `<td>${escapeHtml(r[field])}</td>`
+    : `<td><input class="cell-input name-input" style="border:1px solid var(--b);min-width:${w}px" placeholder="${ph}" value="${escapeHtml(r[field]||'')}" onchange="updatePeopleText(${i},'${field}',this.value)"></td>`;
+  const bodyHtml = pd.rows.map((r,i)=>`<tr>
+      <td class="num">${i+1}</td>
+      ${txtCell(r,i,'nid','الرقم القومى',130)}
+      ${txtCell(r,i,'name','الاسم',160)}
+      ${txtCell(r,i,'spec','التخصص',100)}
+      ${txtCell(r,i,'dept','القسم',100)}
+      ${PEOPLE_GROUPS.map(g=>g.cols.map(c=>numCell(r,i,c,g)).join('')).join('')}
+      <td class="num" style="font-weight:900;color:var(--a)" id="pd-rt-${i}">${fmtNum(peopleRowTotal(r))}</td>
+      <td class="no-print">${locked?'':`<button class="btn-er" onclick="deletePeopleRow(${i})">✕</button>`}</td>
+    </tr>`).join('') || `<tr><td colspan="${5+PEOPLE_ALL_COLS.length+2}" style="color:var(--tm);font-weight:600">لا توجد بيانات بعد${locked?'':' — اضغط "➕ إضافة شخص"'}</td></tr>`;
+
+  /* --- صفوف التذييل: الوعاء المتاح / الموزَّع فعلًا / المتبقى --- */
+  const poolCells = PEOPLE_ALL_COLS.map(c=>`<td class="num pd-pool">${c.pool ? fmtNum(c.pool(calc, generalRemainder)) : '—'}</td>`).join('');
+  const distCells = PEOPLE_ALL_COLS.map(c=>`<td class="num" id="pd-dist-${c.k}">${fmtNum(pd.rows.reduce((s,r)=>s+(Number(r.v&&r.v[c.k])||0),0))}</td>`).join('');
+  const remCells  = PEOPLE_ALL_COLS.map(c=>`<td class="num" id="pd-rem-${c.k}">${c.pool ? '' : '—'}</td>`).join('');
+  const grandDist = pd.rows.reduce((s,r)=>s+peopleRowTotal(r),0);
+
+  const btns = locked ? '' : `<div class="head-btns no-print">
+      <button class="btn btn-p btn-sm" onclick="addPeopleRow()">➕ إضافة شخص</button>
+      <button class="btn btn-ok btn-sm" onclick="exportPeopleToExcel()">⬇ تصدير إكسل</button>
+    </div>`;
+
+  const legacyHtml = (m.people && m.people.length)
+    ? `<div class="sheet-card"><details><summary style="cursor:pointer;font-weight:900;color:var(--p)">📂 الجدول القديم لتوزيع الأشخاص (${m.people.length} صف — محفوظ للمراجعة)</summary>${renderPeopleLegacy(m)}</details></div>` : '';
+
+  return `
+  <div class="sheet-card">
+    <div style="text-align:center;font-weight:900;color:var(--p);line-height:1.8;margin-bottom:6px">مديرية الشئون الصحية بسوهاج<br>مستشفى سوهاج العام</div>
+    <h2 style="margin-top:14px">كبار المسئولين</h2>
+    <div style="overflow-x:auto"><table class="tbl" style="max-width:820px">
+      <thead><tr><th style="width:44px">م</th><th>الرقم القومى</th><th>الاسم</th><th>المنصب</th><th style="width:120px">المبلغ</th></tr></thead>
+      <tbody>${offRows}</tbody>
+      <tfoot><tr><td colspan="4">الإجمالى</td><td class="num" id="pd-off-total">${fmtNum(offTotal)}</td></tr></tfoot>
+    </table></div>
+  </div>
+
+  <div class="sheet-card">
+    <h2>المجموعة حسب العيادات</h2>
+    <div class="entry-form-grid" style="grid-template-columns:repeat(6,minmax(0,1fr))">${daysHtml}</div>
+  </div>
+
+  <div class="sheet-card">
+    <div class="sheet-card-head">
+      <h2>توزيع مستحقات صندوق تحسين الخدمة على الأشخاص</h2>
+      ${btns}
+    </div>
+    <div style="font-size:.72rem;font-weight:700;color:var(--tm);margin-bottom:12px;line-height:1.7">
+      الوعاء المتاح لكل عمود بيتحسب تلقائيًا من صفحة "الإيرادات والتوزيع". اكتب نصيب كل شخص فى العمود المناسب، وصف "المتبقى" بيوضح الفرق بين الوعاء وما تم توزيعه (لو ظهر بالأحمر يبقى الموزَّع أكبر من الوعاء).
+      <br>الوعاء العام المتبقى بعد خصم مستحقات الأقسام: <b class="num" style="color:var(--a)">${fmtNum(generalRemainder)}</b>
+    </div>
+    <div style="overflow-x:auto">
+    <table class="tbl wide-log-tbl people-dist-tbl">
+      <thead>
+        <tr><th rowspan="2" style="width:40px">م</th><th rowspan="2" style="background:#fff59d">الرقم القومى</th><th rowspan="2" style="background:#fff59d">الاسم</th><th rowspan="2" style="background:#fff59d">التخصص</th><th rowspan="2" style="background:#fff59d">القسم</th>${groupHead}<th rowspan="2">إجمالى الشخص</th><th rowspan="2" class="no-print"></th></tr>
+        <tr>${colHead}</tr>
+      </thead>
+      <tbody>${bodyHtml}</tbody>
+      <tfoot>
+        <tr class="pd-foot"><td colspan="5">الوعاء المتاح</td>${poolCells}<td class="num">—</td><td class="no-print"></td></tr>
+        <tr class="pd-foot"><td colspan="5">الموزَّع فعلًا (${pd.rows.length} شخص)</td>${distCells}<td class="num" id="pd-grand">${fmtNum(grandDist)}</td><td class="no-print"></td></tr>
+        <tr class="pd-foot"><td colspan="5">المتبقى غير الموزَّع</td>${remCells}<td class="num">—</td><td class="no-print"></td></tr>
+      </tfoot>
+    </table>
+    </div>
+  </div>
+  ${legacyHtml}
+  <div class="sheet-card">
+    <div class="sign-row no-print">
+      <div class="sign-item">أمين الصندوق<span>...............</span></div>
+      <div class="sign-item">المدير المالى<span>...............</span></div>
+      <div class="sign-item">المدير المالى والإدارى<span>...............</span></div>
+      <div class="sign-item">يعتمد<span>...............</span></div>
+    </div>
+  </div>`;
+}
+
+/* --- تحديث الأرقام الحية (صف الشخص + تذييل الوعاء/الموزَّع/المتبقى) بدون إعادة رسم الصفحة --- */
+function recalcPeopleDist(){
+  const m = getCurrentMonth(); if(!m) return;
+  const pd = ensurePeopleDist(m);
+  const { calc, generalRemainder } = computeGeneralRemainder(m);
+  pd.rows.forEach((r,i)=> setText('pd-rt-'+i, fmtNum(peopleRowTotal(r))));
+  PEOPLE_ALL_COLS.forEach(c=>{
+    const dist = pd.rows.reduce((s,r)=>s+(Number(r.v&&r.v[c.k])||0),0);
+    setText('pd-dist-'+c.k, fmtNum(dist));
+    const remEl = document.getElementById('pd-rem-'+c.k);
+    if(remEl && c.pool){
+      const rem = c.pool(calc, generalRemainder) - dist;
+      remEl.textContent = fmtNum(rem);
+      remEl.style.color = rem < -0.005 ? 'var(--er)' : '';
+      remEl.style.fontWeight = rem < -0.005 ? '900' : '';
+    }
+  });
+  setText('pd-grand', fmtNum(pd.rows.reduce((s,r)=>s+peopleRowTotal(r),0)));
+  setText('pd-off-total', fmtNum(pd.officials.reduce((s,o)=>s+(Number(o.amount)||0),0)));
+}
+
+function updatePeopleOfficial(i, field, value){
+  const m = getCurrentMonth(); if(!m || m.locked) return;
+  const pd = ensurePeopleDist(m);
+  if(!pd.officials[i]) return;
+  pd.officials[i][field] = (field==='amount') ? (parseFloat(value)||0) : value;
+  scheduleAutoSave();
+  recalcPeopleDist();
+}
+function updatePeopleClinicGroup(k, value){
+  const m = getCurrentMonth(); if(!m || m.locked) return;
+  ensurePeopleDist(m).clinicGroups[k] = value;
+  scheduleAutoSave();
+}
+function updatePeopleText(i, field, value){
+  const m = getCurrentMonth(); if(!m || m.locked) return;
+  const pd = ensurePeopleDist(m);
+  if(pd.rows[i]) pd.rows[i][field] = value;
+  scheduleAutoSave();
+}
+function updatePeopleCell(i, key, value){
+  const m = getCurrentMonth(); if(!m || m.locked) return;
+  const pd = ensurePeopleDist(m);
+  if(!pd.rows[i]) return;
+  if(!pd.rows[i].v) pd.rows[i].v = {};
+  const v = String(value).trim();
+  if(v==='') delete pd.rows[i].v[key]; else pd.rows[i].v[key] = parseFloat(v)||0;
+  scheduleAutoSave();
+  recalcPeopleDist();
+}
+function addPeopleRow(){
+  const m = getCurrentMonth(); if(!m || m.locked) return;
+  ensurePeopleDist(m).rows.push({ nid:'', name:'', spec:'', dept:'', v:{} });
+  scheduleAutoSave();
+  renderSheet();
+}
+function deletePeopleRow(i){
+  const m = getCurrentMonth(); if(!m || m.locked) return;
+  if(!confirm('حذف هذا الشخص من الجدول؟')) return;
+  ensurePeopleDist(m).rows.splice(i,1);
+  scheduleAutoSave();
+  renderSheet();
+}
+function exportPeopleToExcel(){
+  const m = getCurrentMonth(); if(!m) return;
+  const pd = ensurePeopleDist(m);
+  if(!pd.rows.length){ alert('لا توجد بيانات لتصديرها.'); return; }
+  const groupRow = ['','','','',''];
+  PEOPLE_GROUPS.forEach(g=> g.cols.forEach((c,i)=> groupRow.push(i===0?g.title:'')));
+  groupRow.push('');
+  const head = ['م','الرقم القومى','الاسم','التخصص','القسم', ...PEOPLE_ALL_COLS.map(c=>c.label), 'إجمالى الشخص'];
+  const aoa = [groupRow, head];
+  pd.rows.forEach((r,i)=> aoa.push([i+1, r.nid||'', r.name||'', r.spec||'', r.dept||'', ...PEOPLE_ALL_COLS.map(c=>Number(r.v&&r.v[c.k])||0), peopleRowTotal(r)]));
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'توزيع الأشخاص');
+  const safeLabel = String(m.label||'').replace(/[\\/:*?"<>|]/g,'-');
+  XLSX.writeFile(wb, `توزيع الأشخاص - ${safeLabel}.xlsx`);
+}
+
 function recalcPeople(){
   const m = getCurrentMonth(); if(!m) return;
   const rows = m.people;
