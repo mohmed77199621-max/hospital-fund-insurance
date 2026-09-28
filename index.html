@@ -114,6 +114,12 @@ body{font-family:'Noto Kufi Arabic',sans-serif;background:var(--bg);color:var(--
 .dept-stat.hi b{color:var(--a)}
 /* جدول توزيع الأشخاص */
 .people-dist-tbl th{text-align:center;vertical-align:middle}
+/* خطوط من كل الاتجاهات لكل عمود وخلية (مثل الإكسل) */
+.bordered-tbl{border-collapse:collapse}
+.bordered-tbl th,.bordered-tbl td{border:1px solid #7f8f88!important}
+.bordered-tbl .cell-input{border-color:transparent!important;background:transparent}
+.bordered-tbl .cell-input:hover{border-color:var(--b)!important}
+.bordered-tbl .cell-input:focus{border-color:var(--p)!important;background:#fff}
 .people-dist-tbl td.pd-pool{background:#fff8e1;font-weight:800}
 .people-dist-tbl tr.pd-foot td{font-weight:900;background:var(--s2)}
 .dist-card .dist-pct-input{width:70px;margin:0 auto 6px;text-align:center;font-size:1.15rem;font-weight:900;color:var(--a);border:1px solid transparent;background:transparent;font-family:inherit;border-radius:7px;padding:3px}
@@ -888,6 +894,7 @@ document.getElementById('excel-input').addEventListener('change', function(e){
   const file = e.target.files[0];
   const arrName = e.target.dataset.target;
   if(!file || !arrName) return;
+  if(arrName==='peopleDist'){ importPeopleFromFile(file); return; }
   const reader = new FileReader();
   reader.onload = function(evt){
     try{
@@ -1182,101 +1189,6 @@ function renderIncomeDistSheet(m){
   </div>
 
   <div class="sheet-card">
-    <h2>توزيع مستحقات الأقسام الخاصة (حسب لائحة توزيع الصندوق)</h2>
-    <div style="font-size:.72rem;font-weight:700;color:var(--tm);margin-bottom:16px;line-height:1.7">
-      كل قسم من الأقسام دى ليه نسبة تُصرف مباشرة لفريقه من إيراده الخاص، وده اللى بيتخصم من "الوعاء العام" قبل توزيعه بالنسب العامة أسفل الصفحة. اترك الحقول صفر لو القسم مش موجود عندك.
-    </div>
-
-    <div class="dept-block">
-      <div class="dept-block-title">🧪 المعمل — 10% من (الإيراد − المستلزمات − الصيانة)</div>
-      <div class="entry-form-grid">
-        ${deptFieldInput(m,'lab','income','إيراد المعمل',dd.lab.income)}
-        ${deptFieldInput(m,'lab','supplies','قيمة المستلزمات',dd.lab.supplies)}
-        ${deptFieldInput(m,'lab','maintenance','قيمة الصيانة',dd.lab.maintenance)}
-      </div>
-      <div class="dept-stats">
-        ${deptStat('الصافى', calc.lab.net)}
-        ${deptStat('الأطباء (5%)', calc.lab.doctors)}
-        ${deptStat('الفنيين (3%)', calc.lab.techs)}
-        ${deptStat('التمريض (2%)', calc.lab.nursing)}
-        ${deptStat('إجمالى المخصوم', calc.lab.fee, true)}
-      </div>
-    </div>
-
-    <div class="dept-block">
-      <div class="dept-block-title">📷 الأشعة — 10% من (الإيراد − المستلزمات − الصيانة)</div>
-      <div class="entry-form-grid">
-        ${deptFieldInput(m,'radiology','income','إيراد الأشعة',dd.radiology.income)}
-        ${deptFieldInput(m,'radiology','supplies','قيمة المستلزمات',dd.radiology.supplies)}
-        ${deptFieldInput(m,'radiology','maintenance','قيمة الصيانة',dd.radiology.maintenance)}
-      </div>
-      <div class="dept-stats">
-        ${deptStat('الصافى', calc.radiology.net)}
-        ${deptStat('الأطباء (6%)', calc.radiology.doctors)}
-        ${deptStat('الفنيين (3%)', calc.radiology.techs)}
-        ${deptStat('التمريض (1%)', calc.radiology.nursing)}
-        ${deptStat('إجمالى المخصوم', calc.radiology.fee, true)}
-      </div>
-    </div>
-
-    <div class="dept-block">
-      <div class="dept-block-title">🩻 الموجات فوق الصوتية — 25% من (الإيراد − المستلزمات) لاستشارى الأشعة</div>
-      <div class="entry-form-grid">
-        ${deptFieldInput(m,'ultrasound','income','إيراد الموجات فوق الصوتية',dd.ultrasound.income)}
-        ${deptFieldInput(m,'ultrasound','supplies','المستلزمات',dd.ultrasound.supplies)}
-      </div>
-      <div class="dept-stats">
-        ${deptStat('الصافى', calc.ultrasound.net)}
-        ${deptStat('استشارى الأشعة (25%)', calc.ultrasound.consultant)}
-        ${deptStat('إجمالى المخصوم', calc.ultrasound.fee, true)}
-      </div>
-    </div>
-
-    <div class="dept-block">
-      <div class="dept-block-title">🔪 الجراحة والتخدير — يُوزَّع حسب الدرجة</div>
-      <div class="entry-form-grid">
-        ${deptFieldInput(m,'surgery','income','إيراد الجراحة والتخدير',dd.surgery.income)}
-      </div>
-      <div class="dept-stats">
-        ${deptStat('استشارى (50%)', calc.surgery.consultant)}
-        ${deptStat('أخصائى (25%)', calc.surgery.specialist)}
-        ${deptStat('مساعد أخصائى (10%)', calc.surgery.assistant)}
-        ${deptStat('إجمالى المخصوم', calc.surgery.fee, true)}
-      </div>
-    </div>
-
-    <div class="dept-block">
-      <div class="dept-block-title">🫀 الرعاية المركزة — 25% من (دخل الوحدة − الأدوية − المستلزمات) للأطباء</div>
-      <div class="entry-form-grid">
-        ${deptFieldInput(m,'icu','income','إيراد الوحدة',dd.icu.income)}
-        ${deptFieldInput(m,'icu','drugs','قيمة الأدوية',dd.icu.drugs)}
-        ${deptFieldInput(m,'icu','supplies','قيمة المستلزمات',dd.icu.supplies)}
-      </div>
-      <div class="dept-stats">
-        ${deptStat('الصافى', calc.icu.net)}
-        ${deptStat('الأطباء (25%)', calc.icu.doctors)}
-        ${deptStat('إجمالى المخصوم', calc.icu.fee, true)}
-      </div>
-    </div>
-
-    <div class="dept-block" style="border-bottom:none;margin-bottom:0;padding-bottom:0">
-      <div class="dept-block-title">🏥 العيادات الصباحية والمسائية — أطباء 50%، تمريض 25%، والباقى 25% لصالح المستشفى (لا يُخصم)</div>
-      <div class="entry-form-grid">
-        ${deptFieldInput(m,'clinicsMorning','income','إيراد العيادة الصباحية',dd.clinicsMorning.income)}
-        ${deptFieldInput(m,'clinicsEvening','income','إيراد العيادة المسائية',dd.clinicsEvening.income)}
-        ${deptFieldInput(m,'clinicsBooks','expense','منصرف دفاتر العيادات',dd.clinicsBooks.expense)}
-      </div>
-      <div class="dept-stats">
-        ${deptStat('إجمالى العيادات بعد خصم الدفاتر', calc.clinics.income)}
-        ${deptStat('الأطباء (50%)', calc.clinics.doctors)}
-        ${deptStat('التمريض (25%)', calc.clinics.nursing)}
-        ${deptStat('لصالح المستشفى (25%)', calc.clinics.hospital)}
-        ${deptStat('إجمالى المخصوم', calc.clinics.fee, true)}
-      </div>
-    </div>
-  </div>
-
-  <div class="sheet-card">
     <h2>حساب صافى الإيراد القابل للتوزيع</h2>
     <table class="tbl" style="margin-top:14px">
       <tbody>
@@ -1285,7 +1197,7 @@ function renderIncomeDistSheet(m){
         <tr><td style="font-weight:900">صافى الإيراد (الإيراد − المنصرف)</td><td class="num" style="font-weight:900;color:var(--p)">${fmt(net)}</td></tr>
         <tr><td>${deduct15Cell}</td><td class="num">${fmt(pct15Val)}</td></tr>
         <tr><td style="font-weight:900">القابل للتوزيع</td><td class="num" style="font-weight:900;color:var(--a)">${fmt(distributable)}</td></tr>
-        <tr><td>إجمالى مستحقات الأقسام الخاصة (معمل/أشعة/جراحة/رعاية مركزة/عيادات)</td><td class="num" style="color:var(--er)">− ${fmt(calc.totalDeptFees)}</td></tr>
+        ${calc.totalDeptFees ? `<tr><td>إجمالى مستحقات الأقسام الخاصة (معمل/أشعة/جراحة/رعاية مركزة/عيادات)</td><td class="num" style="color:var(--er)">− ${fmt(calc.totalDeptFees)}</td></tr>` : ''}
         <tr><td style="font-weight:900">الوعاء العام القابل للتوزيع بالنسب أدناه</td><td class="num" style="font-weight:900;color:var(--a)">${fmt(generalRemainder)}</td></tr>
       </tbody>
     </table>
@@ -2422,7 +2334,7 @@ function renderPeopleLegacy(m){
       ${btns}
     </div>
     <div style="overflow-x:auto">
-    <table class="tbl">
+    <table class="tbl bordered-tbl">
       <thead><tr>
         <th style="min-width:150px">اسم الشخص</th>
         <th>عيادة خارجية صباحى</th><th>عيادة خارجية مسائى</th><th>صندوق</th><th>تأمين</th><th>نفقة</th>
@@ -2499,6 +2411,10 @@ function ensurePeopleDist(m){
     pd.officials = PEOPLE_OFFICIALS_DEFAULT.map(role=>({role, nid:'', name:'', amount:300}));
   }
   if(!pd.clinicGroups || typeof pd.clinicGroups!=='object') pd.clinicGroups = {};
+  if(!Array.isArray(pd.clinicDepts)){
+    const hasOld = PEOPLE_DAYS.some(([k])=>String(pd.clinicGroups[k]||'').trim()!=='');
+    pd.clinicDepts = [{ dept:'', days: hasOld ? Object.assign({}, pd.clinicGroups) : {} }];
+  }
   if(!Array.isArray(pd.rows)) pd.rows = [];
   return pd;
 }
@@ -2531,17 +2447,35 @@ function renderPeopleSheet(m){
       <td class="num">${i+1}</td>
       <td>${f('nid','text','placeholder="الرقم القومى"')}</td>
       <td>${f('name','text','placeholder="الاسم"')}</td>
-      <td style="font-weight:800;background:#fff9c4">${escapeHtml(o.role)}</td>
+      <td style="font-weight:800;background:#fff9c4">${(o.custom && !locked) ? `<input class="cell-input name-input" style="border:1px solid var(--b)" placeholder="المنصب" value="${escapeHtml(o.role||'')}" onchange="updatePeopleOfficial(${i},'role',this.value)">` : escapeHtml(o.role)}</td>
       <td>${f('amount','num')}</td>
+      <td class="no-print">${(locked || !o.custom) ? '' : `<button class="btn-er" onclick="deletePeopleOfficial(${i})">✕</button>`}</td>
     </tr>`;
   }).join('');
   const offTotal = pd.officials.reduce((s,o)=> s + (Number(o.amount)||0), 0);
 
-  /* --- المجموعة حسب العيادات (السبت ... الخميس) --- */
-  const daysHtml = PEOPLE_DAYS.map(([k,lbl])=>`<div class="ef-field"><label>${lbl}</label>${
-    locked ? `<div class="locked-cell">${escapeHtml(pd.clinicGroups[k]||'')}</div>`
-           : `<input class="cell-input" style="border:1px solid var(--b);text-align:center" value="${escapeHtml(pd.clinicGroups[k]||'')}" onchange="updatePeopleClinicGroup('${k}',this.value)">`
-  }</div>`).join('');
+  /* --- المجموعة حسب العيادات (قسم × أيام الأسبوع) --- */
+  const deptNames = Array.from(new Set(pd.rows.map(r=>String(r.dept||'').trim()).filter(Boolean)));
+  const deptDatalist = `<datalist id="pd-dept-list">${deptNames.map(d=>`<option value="${escapeHtml(d)}"></option>`).join('')}</datalist>`;
+  const clinicRowsHtml = pd.clinicDepts.map((cd,i)=>`<tr>
+      <td class="num">${i+1}</td>
+      <td>${locked ? escapeHtml(cd.dept||'') : `<input class="cell-input name-input" list="pd-dept-list" style="border:1px solid var(--b);min-width:160px" placeholder="القسم" value="${escapeHtml(cd.dept||'')}" onchange="updateClinicDept(${i},'dept',this.value)">`}</td>
+      ${PEOPLE_DAYS.map(([k])=> locked
+        ? `<td>${escapeHtml((cd.days&&cd.days[k])||'')}</td>`
+        : `<td><input class="cell-input" style="border:1px solid var(--b);text-align:center;min-width:90px" value="${escapeHtml((cd.days&&cd.days[k])||'')}" onchange="updateClinicDept(${i},'${k}',this.value)"></td>`).join('')}
+      <td class="no-print">${locked ? '' : `<button class="btn-er" onclick="deleteClinicDept(${i})">✕</button>`}</td>
+    </tr>`).join('') || `<tr><td colspan="${PEOPLE_DAYS.length+3}" style="color:var(--tm);font-weight:600">لا توجد أقسام${locked?'':' — اضغط "➕ إضافة قسم"'}</td></tr>`;
+  const clinicCard = `<div class="sheet-card">
+    <div class="sheet-card-head">
+      <h2>المجموعة حسب العيادات</h2>
+      ${locked ? '' : `<div class="head-btns no-print"><button class="btn btn-p btn-sm" onclick="addClinicDept()">➕ إضافة قسم</button></div>`}
+    </div>
+    ${deptDatalist}
+    <div style="overflow-x:auto"><table class="tbl bordered-tbl" id="clinic-dept-tbl">
+      <thead><tr><th style="width:44px">م</th><th style="min-width:170px">القسم</th>${PEOPLE_DAYS.map(([k,l])=>`<th>${l}</th>`).join('')}<th class="no-print" style="width:40px"></th></tr></thead>
+      <tbody>${clinicRowsHtml}</tbody>
+    </table></div>
+  </div>`;
 
   /* --- رؤوس الجدول الرئيسى (صفان مثل الإكسل) --- */
   const groupHead = PEOPLE_GROUPS.map(g=>`<th colspan="${g.cols.length}" style="background:${g.color};color:#fff">${escapeHtml(g.title)}</th>`).join('');
@@ -2576,24 +2510,40 @@ function renderPeopleSheet(m){
       <button class="btn btn-ok btn-sm" onclick="exportPeopleToExcel()">⬇ تصدير إكسل</button>
     </div>`;
 
+  const addEmpCard = locked ? '' : `<div class="sheet-card no-print">
+    <h2>إضافة موظف جديد</h2>
+    <div class="entry-form-grid" style="margin-top:14px">
+      <div class="ef-field"><label>الرقم القومى</label><input id="np-nid" class="cell-input" style="border:1px solid var(--b);text-align:center" inputmode="numeric" maxlength="14" placeholder="14 رقم" onkeydown="if(event.key==='Enter')addPersonFromForm()"></div>
+      <div class="ef-field"><label>الاسم *</label><input id="np-name" class="cell-input name-input" style="border:1px solid var(--b)" placeholder="اسم الموظف" onkeydown="if(event.key==='Enter')addPersonFromForm()"></div>
+      <div class="ef-field"><label>التخصص</label><input id="np-spec" class="cell-input name-input" style="border:1px solid var(--b)" placeholder="مثال: باطنة" onkeydown="if(event.key==='Enter')addPersonFromForm()"></div>
+      <div class="ef-field"><label>القسم</label><input id="np-dept" class="cell-input name-input" list="pd-dept-list" style="border:1px solid var(--b)" placeholder="مثال: الباطنة" onkeydown="if(event.key==='Enter')addPersonFromForm()"></div>
+    </div>
+    <div class="head-btns" style="margin-top:6px">
+      <button class="btn btn-p" onclick="addPersonFromForm()">➕ إضافة موظف</button>
+      <button class="btn btn-o" onclick="triggerImport('peopleDist')">📥 استيراد موظفين من إكسل</button>
+      <button class="btn btn-o" onclick="downloadPeopleTemplate()">📄 تحميل نموذج الاستيراد</button>
+    </div>
+  </div>`;
+
   const legacyHtml = (m.people && m.people.length)
     ? `<div class="sheet-card"><details><summary style="cursor:pointer;font-weight:900;color:var(--p)">📂 الجدول القديم لتوزيع الأشخاص (${m.people.length} صف — محفوظ للمراجعة)</summary>${renderPeopleLegacy(m)}</details></div>` : '';
 
   return `
+  ${addEmpCard}
   <div class="sheet-card">
     <div style="text-align:center;font-weight:900;color:var(--p);line-height:1.8;margin-bottom:6px">مديرية الشئون الصحية بسوهاج<br>مستشفى سوهاج العام</div>
-    <h2 style="margin-top:14px">كبار المسئولين</h2>
-    <div style="overflow-x:auto"><table class="tbl" style="max-width:820px">
-      <thead><tr><th style="width:44px">م</th><th>الرقم القومى</th><th>الاسم</th><th>المنصب</th><th style="width:120px">المبلغ</th></tr></thead>
+    <div class="sheet-card-head" style="margin-top:14px">
+      <h2>كبار المسئولين — مقابل حضور جلسة مجلس الإدارة</h2>
+      ${locked ? '' : `<div class="head-btns no-print"><button class="btn btn-p btn-sm" onclick="addPeopleOfficial()">➕ إضافة مسئول</button></div>`}
+    </div>
+    <div style="overflow-x:auto"><table class="tbl bordered-tbl" style="max-width:980px">
+      <thead><tr><th style="width:44px">م</th><th>الرقم القومى</th><th>الاسم</th><th>المنصب</th><th style="width:190px">مقابل حضور جلسة مجلس الإدارة</th><th class="no-print" style="width:40px"></th></tr></thead>
       <tbody>${offRows}</tbody>
-      <tfoot><tr><td colspan="4">الإجمالى</td><td class="num" id="pd-off-total">${fmtNum(offTotal)}</td></tr></tfoot>
+      <tfoot><tr><td colspan="4">الإجمالى</td><td class="num" id="pd-off-total">${fmtNum(offTotal)}</td><td class="no-print"></td></tr></tfoot>
     </table></div>
   </div>
 
-  <div class="sheet-card">
-    <h2>المجموعة حسب العيادات</h2>
-    <div class="entry-form-grid" style="grid-template-columns:repeat(6,minmax(0,1fr))">${daysHtml}</div>
-  </div>
+  ${clinicCard}
 
   <div class="sheet-card">
     <div class="sheet-card-head">
@@ -2605,7 +2555,7 @@ function renderPeopleSheet(m){
       <br>الوعاء العام المتبقى بعد خصم مستحقات الأقسام: <b class="num" style="color:var(--a)">${fmtNum(generalRemainder)}</b>
     </div>
     <div style="overflow-x:auto">
-    <table class="tbl wide-log-tbl people-dist-tbl">
+    <table class="tbl wide-log-tbl people-dist-tbl bordered-tbl">
       <thead>
         <tr><th rowspan="2" style="width:40px">م</th><th rowspan="2" style="background:#fff59d">الرقم القومى</th><th rowspan="2" style="background:#fff59d">الاسم</th><th rowspan="2" style="background:#fff59d">التخصص</th><th rowspan="2" style="background:#fff59d">القسم</th>${groupHead}<th rowspan="2">إجمالى الشخص</th><th rowspan="2" class="no-print"></th></tr>
         <tr>${colHead}</tr>
@@ -2664,6 +2614,57 @@ function updatePeopleClinicGroup(k, value){
   ensurePeopleDist(m).clinicGroups[k] = value;
   scheduleAutoSave();
 }
+function updateClinicDept(i, field, value){
+  const m = getCurrentMonth(); if(!m || m.locked) return;
+  const cd = ensurePeopleDist(m).clinicDepts[i]; if(!cd) return;
+  if(field==='dept') cd.dept = value;
+  else { if(!cd.days) cd.days = {}; cd.days[field] = value; }
+  scheduleAutoSave();
+}
+function addClinicDept(){
+  const m = getCurrentMonth(); if(!m || m.locked) return;
+  ensurePeopleDist(m).clinicDepts.push({ dept:'', days:{} });
+  scheduleAutoSave();
+  renderSheet();
+  const rows = document.querySelectorAll('#clinic-dept-tbl tbody tr');
+  const last = rows[rows.length-1];
+  if(last){ const inp = last.querySelector('input'); if(inp) inp.focus(); }
+}
+function deleteClinicDept(i){
+  const m = getCurrentMonth(); if(!m || m.locked) return;
+  if(!confirm('حذف هذا القسم من الجدول؟')) return;
+  ensurePeopleDist(m).clinicDepts.splice(i,1);
+  scheduleAutoSave();
+  renderSheet();
+}
+function addPeopleOfficial(){
+  const m = getCurrentMonth(); if(!m || m.locked) return;
+  ensurePeopleDist(m).officials.push({ role:'', nid:'', name:'', amount:300, custom:true });
+  scheduleAutoSave();
+  renderSheet();
+}
+function deletePeopleOfficial(i){
+  const m = getCurrentMonth(); if(!m || m.locked) return;
+  if(!confirm('حذف هذا المسئول من الجدول؟')) return;
+  ensurePeopleDist(m).officials.splice(i,1);
+  scheduleAutoSave();
+  renderSheet();
+}
+function addPersonFromForm(){
+  const m = getCurrentMonth(); if(!m || m.locked) return;
+  const g = id => String((document.getElementById(id)||{}).value||'').trim();
+  const nid = g('np-nid'), name = g('np-name'), spec = g('np-spec'), dept = g('np-dept');
+  if(!name){ alert('اكتب اسم الموظف أولًا.'); const el = document.getElementById('np-name'); if(el) el.focus(); return; }
+  const pd = ensurePeopleDist(m);
+  if(nid && pd.rows.some(r=>String(r.nid||'').trim()===nid)){
+    if(!confirm('الرقم القومى ده موجود بالفعل لموظف تانى. تضيفه برضه؟')) return;
+  }
+  pd.rows.push({ nid, name, spec, dept, v:{} });
+  scheduleAutoSave();
+  renderSheet();
+  toastSaved('✔ تمت إضافة الموظف');
+  const el = document.getElementById('np-nid'); if(el) el.focus();
+}
 function updatePeopleText(i, field, value){
   const m = getCurrentMonth(); if(!m || m.locked) return;
   const pd = ensurePeopleDist(m);
@@ -2685,6 +2686,9 @@ function addPeopleRow(){
   ensurePeopleDist(m).rows.push({ nid:'', name:'', spec:'', dept:'', v:{} });
   scheduleAutoSave();
   renderSheet();
+  const rowsEls = document.querySelectorAll('.people-dist-tbl tbody tr');
+  const last = rowsEls[rowsEls.length-1];
+  if(last){ last.scrollIntoView({block:'center'}); const inp = last.querySelector('input'); if(inp) inp.focus(); }
 }
 function deletePeopleRow(i){
   const m = getCurrentMonth(); if(!m || m.locked) return;
@@ -2693,6 +2697,88 @@ function deletePeopleRow(i){
   scheduleAutoSave();
   renderSheet();
 }
+/* عنوان فريد لكل عمود توزيع (اسم المجموعة - اسم العمود) لتفادى التشابه بين المعمل والأشعة */
+function peopleColHeader(c){
+  const g = PEOPLE_GROUPS.find(x=>x.cols.includes(c));
+  return g.title.split('—')[0].trim() + ' - ' + c.label;
+}
+function normHeader(x){
+  return String(x==null?'':x).replace(/[أإآ]/g,'ا').replace(/ى/g,'ي').replace(/ة/g,'ه').replace(/\s+/g,' ').trim();
+}
+function downloadPeopleTemplate(){
+  const head = ['الرقم القومى','الاسم','التخصص','القسم'];
+  const aoa = [head, ['29001011234567','اسم الموظف','باطنة','الباطنة']];
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  ws['!cols'] = [{wch:18},{wch:28},{wch:16},{wch:16}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'الموظفين');
+  XLSX.writeFile(wb, 'نموذج استيراد الموظفين.xlsx');
+}
+function importPeopleFromFile(file){
+  const m = getCurrentMonth();
+  if(!m || m.locked){ alert('هذا الشهر للعرض فقط ولا يمكن الاستيراد إليه.'); return; }
+  const reader = new FileReader();
+  reader.onload = function(evt){
+    try{
+      const wb = XLSX.read(new Uint8Array(evt.target.result), {type:'array'});
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:''}).filter(r=>r.some(c=>String(c).trim()!==''));
+      if(!rows.length){ alert('الملف فارغ أو لا يحتوى على بيانات.'); return; }
+
+      // نبحث عن صف العناوين (أول 8 صفوف) — الصف الذى يحتوى على "الاسم"
+      let headerIdx = -1;
+      for(let i=0;i<Math.min(rows.length,8);i++){
+        if(rows[i].some(c=>normHeader(c)==='الاسم')){ headerIdx = i; break; }
+      }
+      const colMap = {}; // اسم الحقل -> رقم العمود
+      const amountMap = {}; // مفتاح عمود التوزيع -> رقم العمود
+      if(headerIdx>=0){
+        const idFields = { 'الرقم القومي':'nid', 'الاسم':'name', 'التخصص':'spec', 'القسم':'dept' };
+        const plainCount = {};
+        PEOPLE_ALL_COLS.forEach(c=>{ const k=normHeader(c.label); plainCount[k]=(plainCount[k]||0)+1; });
+        rows[headerIdx].forEach((h,ci)=>{
+          const n = normHeader(h);
+          if(idFields[n] && colMap[idFields[n]]===undefined){ colMap[idFields[n]] = ci; return; }
+          const hit = PEOPLE_ALL_COLS.find(c=> normHeader(peopleColHeader(c))===n || (plainCount[normHeader(c.label)]===1 && normHeader(c.label)===n));
+          if(hit && amountMap[hit.k]===undefined) amountMap[hit.k] = ci;
+        });
+      } else {
+        // بدون صف عناوين: الترتيب الافتراضى (الرقم القومى، الاسم، التخصص، القسم)
+        colMap.nid=0; colMap.name=1; colMap.spec=2; colMap.dept=3;
+      }
+      if(colMap.name===undefined){ alert('لم أجد عمود "الاسم" فى الملف. حمّل "نموذج الاستيراد" واستخدم نفس العناوين.'); return; }
+
+      const txt = (v)=> (typeof v==='number') ? String(Math.round(v)) : String(v==null?'':v).trim();
+      const parsed = [];
+      for(let i=headerIdx+1;i<rows.length;i++){
+        const r = rows[i];
+        const name = String(r[colMap.name]==null?'':r[colMap.name]).trim();
+        if(!name) continue;
+        const person = { nid: colMap.nid!==undefined?txt(r[colMap.nid]):'', name, spec: colMap.spec!==undefined?String(r[colMap.spec]).trim():'', dept: colMap.dept!==undefined?String(r[colMap.dept]).trim():'', v:{} };
+        Object.keys(amountMap).forEach(k=>{
+          const n = parseFloat(String(r[amountMap[k]]).replace(/,/g,''));
+          if(n) person.v[k] = n;
+        });
+        parsed.push(person);
+      }
+      if(!parsed.length){ alert('لم يتم العثور على موظفين فى الملف.'); return; }
+      const pd = ensurePeopleDist(m);
+      let replace = false;
+      if(pd.rows.length){
+        replace = confirm('تم قراءة '+parsed.length+' موظف من الملف.\nاضغط "موافق" لاستبدال الموظفين الحاليين بالكامل،\nأو "إلغاء" لإضافتهم أسفل الموظفين الحاليين.');
+      }
+      pd.rows = replace ? parsed : pd.rows.concat(parsed);
+      scheduleAutoSave();
+      renderSheet();
+      toastSaved('✔ تم استيراد '+parsed.length+' موظف');
+    }catch(err){
+      console.error(err);
+      alert('تعذّرت قراءة الملف. تأكد أنه ملف إكسل صالح (xlsx أو xls أو csv).');
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
 function exportPeopleToExcel(){
   const m = getCurrentMonth(); if(!m) return;
   const pd = ensurePeopleDist(m);
@@ -2700,7 +2786,7 @@ function exportPeopleToExcel(){
   const groupRow = ['','','','',''];
   PEOPLE_GROUPS.forEach(g=> g.cols.forEach((c,i)=> groupRow.push(i===0?g.title:'')));
   groupRow.push('');
-  const head = ['م','الرقم القومى','الاسم','التخصص','القسم', ...PEOPLE_ALL_COLS.map(c=>c.label), 'إجمالى الشخص'];
+  const head = ['م','الرقم القومى','الاسم','التخصص','القسم', ...PEOPLE_ALL_COLS.map(peopleColHeader), 'إجمالى الشخص'];
   const aoa = [groupRow, head];
   pd.rows.forEach((r,i)=> aoa.push([i+1, r.nid||'', r.name||'', r.spec||'', r.dept||'', ...PEOPLE_ALL_COLS.map(c=>Number(r.v&&r.v[c.k])||0), peopleRowTotal(r)]));
   const ws = XLSX.utils.aoa_to_sheet(aoa);
