@@ -249,6 +249,14 @@ input[type=number]{-moz-appearance:textfield}
   .sheet-card{box-shadow:none;border:1px solid #ccc}
   .cell-input{border-color:transparent!important;background:transparent!important}
 }
+
+.xtype{font-weight:900;color:var(--p);background:var(--s2);text-align:center!important;vertical-align:middle;width:70px}
+.x-sign{display:flex;justify-content:space-around;gap:16px;flex-wrap:wrap;margin-top:24px;font-weight:800;font-size:.8rem;color:var(--tm);text-align:center}
+.x-net td{background:rgba(193,120,23,.12)!important;font-weight:900;color:var(--a)!important}
+.xb-tbl{min-width:1550px}
+.xb-tbl .cell-input{min-width:66px}
+.xb-sum td{background:var(--s2);font-weight:900;color:var(--p)}
+.x-note{font-size:.72rem;font-weight:700;color:var(--tm);margin-bottom:12px;line-height:1.7}
 </style>
 </head>
 <body>
@@ -314,13 +322,12 @@ const TREASURY_SEED = JSON.parse(document.getElementById('treasury-seed-json').t
 const fmt = n => (n===null||n===undefined||isNaN(n)) ? '—' : Number(n).toLocaleString('en-US',{maximumFractionDigits:2,minimumFractionDigits:0}) + ' ج.م';
 const fmtNum = n => (n===null||n===undefined||isNaN(n)) ? '0' : Number(n).toLocaleString('en-US',{maximumFractionDigits:3});
 const SHEETS = [
-  ['income_dist','الإيرادات والتوزيع'],
-  ['expense','المنصرف'],
+  ['xrevenue','الإيرادات وصافى التوزيع'],
+  ['xexpense','المنصرف'],
+  ['xbank','توريد البنك — دفتر 37'],
   ['supply','توريد وإيصالات'],
   ['receiptEntryMorning','إدخال التوريد — الفترة الصباحية'],
   ['receiptEntryEvening','إدخال التوريد — الفترة المسائية'],
-  ['daftar','منصرف الدفاتر'],
-  ['dept','المنصرف بالأقسام'],
   ['people','توزيع الأشخاص']
 ];
 let SERVICE_NAMES = SEED.supply_p4.map(r=>r[0]);
@@ -340,7 +347,7 @@ let openFilterMenu = null; // {which, col}
 
 let MONTHS = [];
 let currentMonthId = null;
-let currentSheet = 'income_dist';
+let currentSheet = 'xrevenue';
 let openMonths = new Set();
 let saveTimer = null;
 let receiptSelectedSession = 'صباحى';
@@ -796,13 +803,13 @@ function addMonth(){
   const p4 = SEED.periods[SEED.periods.length-1];
   const m = {
     id: uid(), label: label.trim(), locked:false,
-    income: templateEmptyRows(p4.income, 1),
-    expense: templateEmptyRows(p4.expense, 1),
+    income: [],
+    expense: [],
     deduct15: false,
-    distRows: defaultDistRows(),
+    distRows: [],
     supply: templateEmptyRows(SEED.supply_p4, 4),
-    daftar: templateEmptyRows(SEED.daftar_p4, 2),
-    deptExpense: templateEmptyRows(SEED.dept_p4, 1),
+    daftar: [],
+    deptExpense: [],
     people: [],
     receiptLogMorning: [],
     receiptLogEvening: [],
@@ -811,10 +818,11 @@ function addMonth(){
     lastGroup: '',
     booklet: { morning:{start:null,end:null,current:null}, evening:{start:null,end:null,current:null} }
   };
+  ensureXData(m);
   MONTHS.push(m);
   openMonths.add(m.id);
   currentMonthId = m.id;
-  currentSheet = 'income_dist';
+  currentSheet = 'xrevenue';
   renderSidebar();
   renderSheet();
   scheduleAutoSave();
@@ -840,7 +848,7 @@ function deleteMonth(id){
   openMonths.delete(id);
   if(currentMonthId===id){
     currentMonthId = MONTHS.length ? MONTHS[MONTHS.length-1].id : null;
-    currentSheet = 'income_dist';
+    currentSheet = 'xrevenue';
     if(currentMonthId) openMonths.add(currentMonthId);
   }
   renderSidebar();
@@ -851,6 +859,9 @@ function deleteMonth(id){
 /* ---------------- إضافة / حذف صفوف عامة (فقط للشهور غير المقفولة) ---------------- */
 function blankRowFor(arrName){
   switch(arrName){
+    case 'xExpEcoExt': case 'xExpEcoInt': case 'xExpInsExt': case 'xExpInsInt': case 'xExpStateInt':
+    case 'xRevEco': case 'xRevIns': case 'xRevState': return ['',0];
+    case 'xBank': return ['','الصباحية','','','','',0,0,0,0,0,0,0,'','',''];
     case 'income': case 'expense': case 'deptExpense': return ['',0];
     case 'distRows': return ['بند توزيع جديد',0];
     case 'supply': return ['',0,0,0,0];
@@ -957,18 +968,10 @@ function bindLiveInputs(){
 
 function liveRecalc(arrName){
   const m = getCurrentMonth(); if(!m) return;
-  if(arrName==='income'){
-    setText('simple-total-income', fmt(sumCol(m.income,1)));
-    recalcDist();
-  } else if(arrName==='expense' || arrName==='deptExpense'){
-    setText('simple-total-'+arrName, fmt(sumCol(m[arrName],1)));
-    if(arrName==='expense') recalcDist();
-  } else if(arrName==='distRows'){
-    recalcDist();
+  if(String(arrName).indexOf('x')===0){
+    recalcX();
   } else if(arrName==='supply'){
     recalcSupply();
-  } else if(arrName==='daftar'){
-    recalcDaftar();
   } else if(arrName==='people'){
     recalcPeople();
   }
@@ -984,7 +987,7 @@ function updateHeader(m, sheetLabel){
 async function resetAllData(){
   const warn = 'تحذير نهائى لا يمكن التراجع عنه:\n\n' +
     'سيتم حذف كل الشهور نهائيًا — بما فى ذلك الشهور الأربعة الأصلية المستوردة من ملف الإكسل — ' +
-    'وكل ما بداخلها (الإيرادات والتوزيع، المنصرف، التوريد والإيصالات، الدفاتر، توزيع الأشخاص) ' +
+    'وكل ما بداخلها (الإيرادات، المنصرف، توريد البنك، التوريد والإيصالات، توزيع الأشخاص) ' +
     'من هذا الجهاز ومن قاعدة بيانات Firebase السحابية المشتركة بين كل الأجهزة.\n\n' +
     'قائمة "الخدمات والأسعار" لن تتأثر وستبقى كما هى.\n\n' +
     'هل أنت متأكد من المتابعة؟';
@@ -997,7 +1000,7 @@ async function resetAllData(){
   openMonths = new Set();
   logFilters = { morning:{}, evening:{} };
   closeColumnFilterOverlay();
-  currentSheet = 'income_dist';
+  currentSheet = 'xrevenue';
 
   // نحفظ مصفوفة فارغة صراحةً (بدلًا من حذف المستند) حتى لا تُعاد زراعة الشهور الأصلية تلقائيًا عند إعادة التحميل
   await storageSet(MONTHS_KEY, JSON.stringify([]));
@@ -1045,6 +1048,7 @@ function renderSheet(){
     container.innerHTML = '<div class="empty-state">اختر شهرًا من القائمة الجانبية، أو أضف شهرًا جديدًا بالضغط على "➕ إضافة شهر جديد"</div>';
     return;
   }
+  ensureXData(m);
   const sheetLabel = (SHEETS.find(s=>s[0]===currentSheet)||[])[1] || '';
   updateHeader(m, sheetLabel);
 
@@ -1052,13 +1056,12 @@ function renderSheet(){
 
   let html = '';
   switch(currentSheet){
-    case 'income_dist': html = renderIncomeDistSheet(m); break;
-    case 'expense': html = renderSimpleSheet(m,'expense','المنصرف','بند المنصرف'); break;
-    case 'dept': html = renderSimpleSheet(m,'deptExpense','المنصرف بالأقسام','القسم'); break;
+    case 'xrevenue': html = renderXRevenueSheet(m); break;
+    case 'xexpense': html = renderXExpenseSheet(m); break;
+    case 'xbank': html = renderXBankSheet(m); break;
     case 'supply': html = renderSupplySheet(m); break;
     case 'receiptEntryMorning': html = renderReceiptEntrySheet(m,'morning'); break;
     case 'receiptEntryEvening': html = renderReceiptEntrySheet(m,'evening'); break;
-    case 'daftar': html = renderDaftarSheet(m); break;
     case 'people': html = renderPeopleSheet(m); break;
     default: html = '';
   }
@@ -1085,161 +1088,202 @@ function cell(m, arrName, idx, col, value, type, extraClass){
   return `<input class="cell-input ${extraClass}" type="number" step="0.01" data-arr="${arrName}" data-idx="${idx}" data-col="${col}" value="${value}">`;
 }
 
-/* --- شيت بسيط (بيان + قيمة): المنصرف / الأقسام --- */
-function renderSimpleSheet(m, arrName, title, colLabel){
-  const rows = m[arrName];
-  const rowsHtml = rows.map((r,i)=>`<tr>
-      <td>${cell(m,arrName,i,0,r[0],'text')}</td>
-      <td>${cell(m,arrName,i,1,r[1],'num')}</td>
-      <td class="no-print">${m.locked?'':`<button class="btn-er" onclick="removeRow('${arrName}',${i})">✕</button>`}</td>
-    </tr>`).join('') || `<tr><td colspan="3" style="color:var(--tm);font-weight:600">لا توجد بيانات بعد${m.locked?'':' — اضغط "➕ إضافة بند"'}</td></tr>`;
-  const btns = m.locked ? '' : `<div class="head-btns no-print">
-      <button class="btn btn-o btn-sm" onclick="triggerImport('${arrName}')">📥 استيراد إكسل</button>
-      <button class="btn btn-p btn-sm" onclick="addRow('${arrName}')">➕ إضافة بند</button>
-    </div>`;
-  return `
-  <div class="sheet-card">
-    <div class="sheet-card-head">
-      <h2>${title}</h2>
-      ${btns}
-    </div>
-    <table class="tbl">
-      <thead><tr><th>${colLabel}</th><th style="width:160px">القيمة (ج.م)</th><th class="no-print" style="width:40px"></th></tr></thead>
-      <tbody>${rowsHtml}</tbody>
-      <tfoot><tr><td>الإجمالى</td><td class="num" id="simple-total-${arrName}">${fmt(sumCol(rows,1))}</td><td class="no-print"></td></tr></tfoot>
-    </table>
-  </div>`;
+/* ================= الصفحات المنقولة من ملف الإكسل: الإيرادات / المنصرف / توريد البنك ================= */
+const X_EXP_ECO_EXT = ['المعمل','الاشعة','محاليل اطفال','التعقيم','الاسنان','المطبوعات','عيادة ايكو اطفال','العلاج الطبيعى','رسم العصب','عيادة الايكو','الاشعة التلفزيونية','تحاليل بنك دم','نسبة 80% قرار','شهداء','سموم','اكياس دم','غسيل','استرداد'];
+const X_EXP_INT = ['اكسجين','الادوية','مخزن المستلزمات','اشعة','تحاليل','منصرف بنك الدم'];
+const X_EXP_INS_EXT = ['اشعة رنين','اشعة مقطعية','اشعة ايكو كبار','اشعة ايكو اطفال','جلدية اشعة فوق بنفسجية','علاج طبيعي'];
+const X_REV_ECO = ['عيادة صباحي','عيادة مسائي','زيارة مريض','اقتصادي صباحي','اقتصادي مسائي','ايرادات محولة من 33.ع ح ايرادات الداخلي'];
+const X_SPLITS = [
+  [50,'للأطباء والعاملين بالمستشفى'],
+  [37,'نفقات التشغيل المختلفة بالمستشفى'],
+  [7,'لدعم صندوق تحسين الخدمة بالمديرية'],
+  [2,'لدعم صندوق تحسين بديوان عام وزارة الصحة والسكان'],
+  [2,'لمديرية الشئون الصحية لدعم الدراسات العليا'],
+  [2,'لدعم مشروعات بمراجعة قطاع الصحة والسكان']
+];
+const X_BANK_NUM = [6,7,8,9,10,11,12];
+const X_BANK_HEADS = ['عيادات','زيارة عادية','اقتصادي عادي','عجز توريد','صندوق شهداء','مرافق مريض','قرارات'];
+
+function xPairs(names){ return names.map(n=>[n,0]); }
+function ensureXData(m){
+  if(!m) return;
+  if(!Array.isArray(m.xExpEcoExt)) m.xExpEcoExt = xPairs(X_EXP_ECO_EXT);
+  if(!Array.isArray(m.xExpEcoInt)) m.xExpEcoInt = xPairs(X_EXP_INT);
+  if(!Array.isArray(m.xExpInsExt)) m.xExpInsExt = xPairs(X_EXP_INS_EXT);
+  if(!Array.isArray(m.xExpInsInt)) m.xExpInsInt = xPairs(X_EXP_INT);
+  if(!Array.isArray(m.xExpStateInt)) m.xExpStateInt = xPairs(X_EXP_INT);
+  if(!Array.isArray(m.xRevEco)) m.xRevEco = xPairs(X_REV_ECO);
+  if(!Array.isArray(m.xRevIns)) m.xRevIns = [1,2,3,4,5].map(()=>['',0]);
+  if(!Array.isArray(m.xRevState)) m.xRevState = [1,2,3,4,5].map(()=>['',0]);
+  if(!Array.isArray(m.xBank)) m.xBank = [];
 }
-
-/* --- شيت الإيرادات والتوزيع (صفحة واحدة) --- */
-/* --- بطاقة قسم واحد ضمن قسم "توزيع مستحقات الأقسام الخاصة" --- */
-function deptFieldInput(m, dept, field, label, value){
-  if(m.locked){
-    return `<div class="ef-field"><label>${label}</label><div class="locked-cell">${fmt(Number(value)||0)}</div></div>`;
-  }
-  return `<div class="ef-field"><label>${label}</label><input type="number" step="0.01" class="cell-input" style="border:1px solid var(--b);text-align:center" value="${value||''}" onchange="updateDeptDistField('${dept}','${field}',this.value)"></div>`;
+function xSum(arr){ return sumCol(arr||[],1); }
+function computeXTotals(m){
+  const expEco = xSum(m.xExpEcoExt)+xSum(m.xExpEcoInt);
+  const expIns = xSum(m.xExpInsExt)+xSum(m.xExpInsInt);
+  const expState = xSum(m.xExpStateInt);
+  const revEco = xSum(m.xRevEco), revIns = xSum(m.xRevIns), revState = xSum(m.xRevState);
+  const revAll = revEco+revIns+revState;
+  const expAll = expEco+expIns+expState;
+  return { expEco, expIns, expState, expAll, revEco, revIns, revState, revAll, net: revAll-expAll, hasData: (revAll!==0 || expAll!==0) };
 }
-function deptStat(label, value, highlight){
-  return `<div class="dept-stat${highlight?' hi':''}"><span>${label}</span><b class="num">${fmt(value)}</b></div>`;
-}
-
-function renderIncomeDistSheet(m){
-  const rows = m.income;
-  const incomeRowsHtml = rows.map((r,i)=>`<tr>
-      <td>${cell(m,'income',i,0,r[0],'text')}</td>
-      <td>${cell(m,'income',i,1,r[1],'num')}</td>
-      <td class="no-print">${m.locked?'':`<button class="btn-er" onclick="removeRow('income',${i})">✕</button>`}</td>
-    </tr>`).join('') || `<tr><td colspan="3" style="color:var(--tm);font-weight:600">لا توجد بيانات بعد${m.locked?'':' — اضغط "➕ إضافة بند"'}</td></tr>`;
-
-  const incomeBtns = m.locked ? '' : `<div class="head-btns no-print">
-      <button class="btn btn-o btn-sm" onclick="triggerImport('income')">📥 استيراد إكسل</button>
-      <button class="btn btn-p btn-sm" onclick="addRow('income')">➕ إضافة بند</button>
-    </div>`;
-
-  const incomeTotal = sumCol(m.income,1);
-  const expenseTotal = sumCol(m.expense,1);
-  const net = incomeTotal - expenseTotal;
-  const pct15Val = m.deduct15 ? net*0.15 : 0;
-  const distributable = net - pct15Val;
-  const dd = Object.assign(defaultDeptDist(), m.deptDist || {});
-  const calc = computeDeptDistribution(m);
-  const generalRemainder = distributable - calc.totalDeptFees;
-  const pctSum = sumCol(m.distRows,1);
-  const warn = Math.abs(pctSum-100) > 0.05;
-
-  const deduct15Cell = m.locked
-    ? `<span class="locked-cell">خصم 15% من صافى الإيراد: ${m.deduct15 ? 'مُطبّق' : 'غير مُطبّق'}</span>`
-    : `<label style="display:flex;gap:8px;align-items:center;cursor:pointer;font-weight:700">
-         <input type="checkbox" id="deduct15-chk" ${m.deduct15?'checked':''}> خصم 15% من صافى الإيراد قبل التوزيع
-       </label>`;
-
-  const distBtns = m.locked ? '' : `<div class="head-btns no-print">
-      <button class="btn btn-o btn-sm" onclick="triggerImport('distRows')">📥 استيراد إكسل</button>
-      <button class="btn btn-p btn-sm" onclick="addRow('distRows')">➕ إضافة بند توزيع</button>
-    </div>`;
-
-  const cards = m.distRows.map((r,i)=>{
-    const val = generalRemainder * (Number(r[1])||0) / 100;
-    const pctPart = m.locked
-      ? `<span class="dist-pct-locked">${r[1]}%</span>`
-      : `<input class="cell-input dist-pct-input" type="number" step="0.1" data-arr="distRows" data-idx="${i}" data-col="1" value="${r[1]}">%`;
-    const labelPart = m.locked
-      ? `<span class="lb-locked">${escapeHtml(r[0])}</span>`
-      : `<div class="lb"><input class="cell-input" data-arr="distRows" data-idx="${i}" data-col="0" data-type="text" value="${escapeHtml(r[0])}"></div>`;
-    const delBtn = m.locked ? '' : `<button class="btn-er no-print" style="margin-top:8px" onclick="removeRow('distRows',${i})">✕ حذف</button>`;
-    return `<div class="dist-card">
-      ${pctPart}
-      ${labelPart}
-      <div class="vv num" id="dist-val-${i}">${fmt(val)}</div>
-      ${delBtn}
-    </div>`;
-  }).join('') || '<div style="color:var(--tm);font-weight:600;grid-column:1/-1">لا توجد بنود توزيع بعد</div>';
-
-  return `
-  <div class="sheet-card">
-    <div class="sheet-card-head">
-      <h2>الإيرادات</h2>
-      ${incomeBtns}
-    </div>
-    <table class="tbl">
-      <thead><tr><th>بند الإيراد</th><th style="width:160px">القيمة (ج.م)</th><th class="no-print" style="width:40px"></th></tr></thead>
-      <tbody>${incomeRowsHtml}</tbody>
-      <tfoot><tr><td>الإجمالى</td><td class="num" id="simple-total-income">${fmt(incomeTotal)}</td><td class="no-print"></td></tr></tfoot>
-    </table>
-  </div>
-
-  <div class="sheet-card">
-    <h2>حساب صافى الإيراد القابل للتوزيع</h2>
-    <table class="tbl" style="margin-top:14px">
-      <tbody>
-        <tr><td>إجمالى الإيراد</td><td class="num">${fmt(incomeTotal)}</td></tr>
-        <tr><td>إجمالى المنصرف</td><td class="num">${fmt(expenseTotal)}</td></tr>
-        <tr><td style="font-weight:900">صافى الإيراد (الإيراد − المنصرف)</td><td class="num" style="font-weight:900;color:var(--p)">${fmt(net)}</td></tr>
-        <tr><td>${deduct15Cell}</td><td class="num">${fmt(pct15Val)}</td></tr>
-        <tr><td style="font-weight:900">القابل للتوزيع</td><td class="num" style="font-weight:900;color:var(--a)">${fmt(distributable)}</td></tr>
-        ${calc.totalDeptFees ? `<tr><td>إجمالى مستحقات الأقسام الخاصة (معمل/أشعة/جراحة/رعاية مركزة/عيادات)</td><td class="num" style="color:var(--er)">− ${fmt(calc.totalDeptFees)}</td></tr>` : ''}
-        <tr><td style="font-weight:900">الوعاء العام القابل للتوزيع بالنسب أدناه</td><td class="num" style="font-weight:900;color:var(--a)">${fmt(generalRemainder)}</td></tr>
-      </tbody>
-    </table>
-  </div>
-
-  <div class="sheet-card">
-    <div class="sheet-card-head">
-      <h2>نسب توزيع الوعاء العام</h2>
-      ${distBtns}
-    </div>
-    <div class="pct-sum-note ${warn?'warn':''}" id="pct-sum-note">إجمالى النسب الحالى: ${pctSum.toFixed(1)}% ${warn?'⚠ يفضل أن يكون المجموع 100%':'✓'}</div>
-    <div class="g6">${cards}</div>
-  </div>
-
-  <div class="sheet-card">
-    <div class="sign-row no-print">
-      <div class="sign-item">المختص<span>...............</span></div>
-      <div class="sign-item">المدير المالى<span>...............</span></div>
-      <div class="sign-item">المدير المالى والإدارى<span>...............</span></div>
-      <div class="sign-item">يعتمد<span>...............</span></div>
-    </div>
-  </div>`;
-}
-
-function recalcDist(){
-  const m = getCurrentMonth(); if(!m) return;
-  const incomeTotal = sumCol(m.income,1);
-  const expenseTotal = sumCol(m.expense,1);
-  const net = incomeTotal - expenseTotal;
-  const calc = computeDeptDistribution(m);
-  const generalRemainder = net - (m.deduct15 ? net*0.15 : 0) - calc.totalDeptFees;
-  const pctSum = sumCol(m.distRows,1);
-  const warn = Math.abs(pctSum-100) > 0.05;
-  m.distRows.forEach((r,i)=>{
-    const val = generalRemainder * (Number(r[1])||0) / 100;
-    setText('dist-val-'+i, fmt(val));
+function xBankRowTotal(r){ return X_BANK_NUM.reduce((s,c)=> s + (Number(r[c])||0), 0); }
+function xBankSummary(m){
+  const ev = Array(X_BANK_NUM.length).fill(0), mo = Array(X_BANK_NUM.length).fill(0);
+  (m.xBank||[]).forEach(r=>{
+    const p = String(r[1]||'');
+    const t = p.indexOf('مسائ')>=0 ? ev : (p.indexOf('صباح')>=0 ? mo : null);
+    if(!t) return;
+    X_BANK_NUM.forEach((c,k)=>{ t[k] += Number(r[c])||0; });
   });
-  const note = document.getElementById('pct-sum-note');
-  if(note){
-    note.textContent = `إجمالى النسب الحالى: ${pctSum.toFixed(1)}% ${warn?'⚠ يفضل أن يكون المجموع 100%':'✓'}`;
-    note.classList.toggle('warn', warn);
-  }
+  return { ev, mo };
+}
+
+function recalcX(){
+  const m = getCurrentMonth(); if(!m) return;
+  ensureXData(m);
+  const t = computeXTotals(m);
+  setText('xe-tot-eco', fmt(t.expEco)); setText('xe-tot-ins', fmt(t.expIns)); setText('xe-tot-state', fmt(t.expState)); setText('xe-tot-all', fmt(t.expAll));
+  setText('xr-tot-eco', fmt(t.revEco)); setText('xr-tot-ins', fmt(t.revIns)); setText('xr-tot-state', fmt(t.revState));
+  setText('xr-all', fmt(t.revAll)); setText('xr-exp', fmt(t.expAll)); setText('xr-net', fmt(t.net));
+  X_SPLITS.forEach((sp,i)=> setText('xr-split-'+i, fmt(t.net*sp[0]/100)));
+  const b = xBankSummary(m);
+  let evT=0, moT=0;
+  X_BANK_NUM.forEach((c,k)=>{
+    setText('xb-ev-'+k, fmtNum(b.ev[k])); setText('xb-mo-'+k, fmtNum(b.mo[k])); setText('xb-tot-'+k, fmtNum(b.ev[k]+b.mo[k]));
+    evT += b.ev[k]; moT += b.mo[k];
+  });
+  setText('xb-ev-t', fmtNum(evT)); setText('xb-mo-t', fmtNum(moT)); setText('xb-tot-t', fmtNum(evT+moT));
+  (m.xBank||[]).forEach((r,i)=> setText('xb-rt-'+i, fmtNum(xBankRowTotal(r))));
+}
+
+function xSelectCell(m, arr, idx, col, value, options){
+  if(m.locked) return `<span class="locked-cell name-locked">${escapeHtml(value)}</span>`;
+  return `<select class="cell-input" style="border:1px solid var(--b)" data-arr="${arr}" data-idx="${idx}" data-col="${col}" data-type="text">` +
+    options.map(o=>`<option value="${escapeHtml(o)}"${o===value?' selected':''}>${escapeHtml(o)}</option>`).join('') + `</select>`;
+}
+
+/* --- صفحة المنصرف: منصرف الاقتصادى / التأمين / نفقة الدولة --- */
+function xExpenseBlockHtml(m, title, totalId, total, groups){
+  let n = 0, rowsHtml = '';
+  groups.forEach(g=>{
+    const rows = m[g.arr];
+    rows.forEach((r,i)=>{
+      n++;
+      rowsHtml += `<tr>${i===0 ? `<td rowspan="${rows.length}" class="xtype">${g.type}</td>` : ''}
+        <td style="text-align:center">${n}</td>
+        <td>${cell(m,g.arr,i,0,r[0],'text')}</td>
+        <td>${cell(m,g.arr,i,1,r[1],'num')}</td>
+        <td class="no-print">${m.locked?'':`<button class="btn-er" onclick="removeRow('${g.arr}',${i})">✕</button>`}</td>
+      </tr>`;
+    });
+    if(!rows.length) rowsHtml += `<tr><td class="xtype">${g.type}</td><td colspan="4" style="color:var(--tm);font-weight:600">لا توجد بنود</td></tr>`;
+    if(!m.locked) rowsHtml += `<tr class="no-print"><td></td><td colspan="4" style="text-align:right"><button class="btn btn-o btn-sm" onclick="addRow('${g.arr}')">➕ إضافة بند (${g.type})</button></td></tr>`;
+  });
+  return `<div class="sheet-card">
+    <div class="sheet-card-head"><h2>${title}</h2></div>
+    <table class="tbl">
+      <thead><tr><th style="width:70px">النوع</th><th style="width:44px">م</th><th>القسم</th><th style="width:170px">المبلغ (ج.م)</th><th class="no-print" style="width:40px"></th></tr></thead>
+      <tbody>${rowsHtml}</tbody>
+      <tfoot><tr><td colspan="3">الإجمالى</td><td class="num" id="${totalId}">${fmt(total)}</td><td class="no-print"></td></tr></tfoot>
+    </table>
+  </div>`;
+}
+function renderXExpenseSheet(m){
+  ensureXData(m);
+  const t = computeXTotals(m);
+  const lbl = escapeHtml(m.label);
+  return `<div class="x-note">بيان بإجمالى المنصرف عن شهر <b>${lbl}</b></div>` +
+    xExpenseBlockHtml(m, 'منصرف الاقتصادى', 'xe-tot-eco', t.expEco, [{type:'خارجى',arr:'xExpEcoExt'},{type:'داخلى',arr:'xExpEcoInt'}]) +
+    xExpenseBlockHtml(m, 'منصرف التأمين', 'xe-tot-ins', t.expIns, [{type:'خارجى',arr:'xExpInsExt'},{type:'داخلى',arr:'xExpInsInt'}]) +
+    xExpenseBlockHtml(m, 'منصرف نفقة الدولة', 'xe-tot-state', t.expState, [{type:'داخلى',arr:'xExpStateInt'}]) +
+    `<div class="sheet-card"><table class="tbl"><tfoot><tr class="x-net"><td>إجمالى المنصرف (الاقتصادى + التأمين + نفقة الدولة)</td><td class="num" id="xe-tot-all" style="width:190px">${fmt(t.expAll)}</td></tr></tfoot></table>
+      <div class="x-sign"><div>المختص</div><div>مدير الشئون المالية</div><div>يعتمد</div></div></div>`;
+}
+
+/* --- صفحة الإيرادات: الاقتصادى / التأمين / نفقة الدولة + صافى الإيراد والتوزيع --- */
+function xRevenueBlockHtml(m, title, arr, firstLabel, totalId, total, fixed){
+  const rows = m[arr];
+  const body = rows.map((r,i)=>`<tr>
+      <td style="text-align:center">${i+1}</td>
+      <td>${cell(m,arr,i,0,r[0],'text')}</td>
+      <td>${cell(m,arr,i,1,r[1],'num')}</td>
+      <td class="no-print">${(m.locked||fixed)?'':`<button class="btn-er" onclick="removeRow('${arr}',${i})">✕</button>`}</td>
+    </tr>`).join('');
+  const add = (m.locked||fixed) ? '' : `<div class="head-btns no-print"><button class="btn btn-p btn-sm" onclick="addRow('${arr}')">➕ إضافة صف</button></div>`;
+  return `<div class="sheet-card">
+    <div class="sheet-card-head"><h2>${title}</h2>${add}</div>
+    <table class="tbl">
+      <thead><tr><th style="width:44px">م</th><th>${firstLabel}</th><th style="width:190px">المبلغ (ج.م)</th><th class="no-print" style="width:40px"></th></tr></thead>
+      <tbody>${body}</tbody>
+      <tfoot><tr><td colspan="2">الإجمالى</td><td class="num" id="${totalId}">${fmt(total)}</td><td class="no-print"></td></tr></tfoot>
+    </table>
+  </div>`;
+}
+function renderXRevenueSheet(m){
+  ensureXData(m);
+  const t = computeXTotals(m);
+  const splitRows = X_SPLITS.map((sp,i)=>`<tr><td style="text-align:center;width:80px">${sp[0]}%</td><td style="text-align:right">${sp[1]}</td><td class="num" id="xr-split-${i}" style="width:190px">${fmt(t.net*sp[0]/100)}</td></tr>`).join('');
+  return xRevenueBlockHtml(m, 'إيرادات الاقتصادى', 'xRevEco', 'القسم', 'xr-tot-eco', t.revEco, true) +
+    xRevenueBlockHtml(m, 'إيرادات التأمين', 'xRevIns', 'أمر الدفع', 'xr-tot-ins', t.revIns, false) +
+    xRevenueBlockHtml(m, 'إيرادات نفقة الدولة', 'xRevState', 'أمر الدفع', 'xr-tot-state', t.revState, false) +
+    `<div class="sheet-card">
+      <div class="sheet-card-head"><h2>صافى الإيراد وقابل للتوزيع — ${escapeHtml(m.label)}</h2></div>
+      <table class="tbl"><tbody>
+        <tr><td style="text-align:right">إجمالى الإيرادات (الاقتصادى + التأمين + نفقة الدولة)</td><td class="num" id="xr-all" style="width:190px">${fmt(t.revAll)}</td></tr>
+        <tr><td style="text-align:right">إجمالى المنصرف (من صفحة المنصرف)</td><td class="num" id="xr-exp">${fmt(t.expAll)}</td></tr>
+        <tr class="x-net"><td style="text-align:right">صافى الإيراد وقابل للتوزيع</td><td class="num" id="xr-net">${fmt(t.net)}</td></tr>
+      </tbody></table>
+      <table class="tbl" style="margin-top:14px">
+        <thead><tr><th>النسبة</th><th style="text-align:right">البند</th><th>المبلغ (ج.م)</th></tr></thead>
+        <tbody>${splitRows}</tbody>
+      </table>
+      <div class="x-sign"><div>المختص</div><div>المدير المالى</div><div>المدير المالى والإدارى</div><div>يعتمد</div></div>
+    </div>`;
+}
+
+/* --- صفحة توريد البنك — دفتر 37 (الخزنة وتوريد البنك) --- */
+function renderXBankSheet(m){
+  ensureXData(m);
+  const rows = m.xBank;
+  const b = xBankSummary(m);
+  const sumOf = a => a.reduce((x,y)=>x+y,0);
+  const sumRow = (label, arr, idp) => `<tr class="xb-sum"><td colspan="6" style="text-align:center">${label}</td>` +
+    arr.map((v,k)=>`<td class="num" id="${idp}-${k}">${fmtNum(v)}</td>`).join('') +
+    `<td class="num" id="${idp}-t">${fmtNum(sumOf(arr))}</td><td colspan="4"></td></tr>`;
+  const tot = b.ev.map((v,k)=> v + b.mo[k]);
+  const numHeads = X_BANK_HEADS.map(h=>`<th>${h}</th>`).join('');
+  const body = rows.map((r,i)=>`<tr>
+      <td>${cell(m,'xBank',i,0,r[0],'text')}</td>
+      <td>${xSelectCell(m,'xBank',i,1,r[1],['الصباحية','المسائية'])}</td>
+      <td>${cell(m,'xBank',i,2,r[2],'text')}</td>
+      <td>${cell(m,'xBank',i,3,r[3],'text')}</td>
+      <td>${cell(m,'xBank',i,4,r[4],'text')}</td>
+      <td>${cell(m,'xBank',i,5,r[5],'text')}</td>
+      ${X_BANK_NUM.map(c=>`<td>${cell(m,'xBank',i,c,r[c],'num')}</td>`).join('')}
+      <td class="num" id="xb-rt-${i}" style="font-weight:900;color:var(--a)">${fmtNum(xBankRowTotal(r))}</td>
+      <td>${cell(m,'xBank',i,13,r[13],'text')}</td>
+      <td>${cell(m,'xBank',i,14,r[14],'text')}</td>
+      <td>${cell(m,'xBank',i,15,r[15],'text')}</td>
+      <td class="no-print">${m.locked?'':`<button class="btn-er" onclick="removeRow('xBank',${i})">✕</button>`}</td>
+    </tr>`).join('') || `<tr><td colspan="18" style="color:var(--tm);font-weight:600">لا توجد إيصالات بعد${m.locked?'':' — اضغط "➕ إضافة إيصال"'}</td></tr>`;
+  const add = m.locked ? '' : `<div class="head-btns no-print"><button class="btn btn-p btn-sm" onclick="addRow('xBank')">➕ إضافة إيصال</button></div>`;
+  return `<div class="sheet-card">
+    <div class="sheet-card-head"><h2>الخزنة وتوريد البنك — الخزنة الرئيسية إيصال 37</h2>${add}</div>
+    <div class="x-note">صفوف المسائى والصباحى والإجمالى بالأعلى تُحسب تلقائيًا من الإيصالات المُدخلة بالأسفل حسب عمود "الفترة".</div>
+    <div style="overflow-x:auto">
+    <table class="tbl xb-tbl">
+      <thead>
+        ${sumRow('مسائى', b.ev, 'xb-ev')}
+        ${sumRow('صباحى', b.mo, 'xb-mo')}
+        ${sumRow('الإجمالى', tot, 'xb-tot')}
+        <tr><th rowspan="2">م</th><th rowspan="2">الفترة</th><th colspan="2">التاريخ</th><th colspan="10">إيصالات التحصيل</th><th colspan="2">توريد البنك</th><th rowspan="2">ملاحظات</th><th rowspan="2" class="no-print"></th></tr>
+        <tr><th>من</th><th>إلى</th><th>مجموعة</th><th>رقم الإيصال 37 ع.ح</th>${numHeads}<th>الإجمالى</th><th>رقم</th><th>تاريخ التوريد</th></tr>
+      </thead>
+      <tbody>${body}</tbody>
+    </table>
+    </div>
+  </div>`;
 }
 
 /* --- شيت توريد وإيصالات --- */
@@ -2260,49 +2304,6 @@ function syncSupplyFromReceipts(){
   if(currentSheet==='supply') renderSheet();
 }
 
-/* --- شيت منصرف الدفاتر --- */
-function renderDaftarSheet(m){
-  const rows = m.daftar;
-  const rowsHtml = rows.map((r,i)=>{
-    const total = (Number(r[1])||0)*(Number(r[2])||0);
-    return `<tr>
-      <td>${cell(m,'daftar',i,0,r[0],'text')}</td>
-      <td>${cell(m,'daftar',i,1,r[1],'num')}</td>
-      <td>${cell(m,'daftar',i,2,r[2],'num')}</td>
-      <td class="num" style="font-weight:800" id="daf-t-${i}">${fmt(total)}</td>
-      <td class="no-print">${m.locked?'':`<button class="btn-er" onclick="removeRow('daftar',${i})">✕</button>`}</td>
-    </tr>`;
-  }).join('') || `<tr><td colspan="5" style="color:var(--tm);font-weight:600">لا توجد بيانات بعد${m.locked?'':' — اضغط "➕ إضافة دفتر"'}</td></tr>`;
-
-  const grand = rows.reduce((s,r)=> s + (Number(r[1])||0)*(Number(r[2])||0), 0);
-  const btns = m.locked ? '' : `<div class="head-btns no-print">
-      <button class="btn btn-o btn-sm" onclick="triggerImport('daftar')">📥 استيراد إكسل</button>
-      <button class="btn btn-p btn-sm" onclick="addRow('daftar')">➕ إضافة دفتر</button>
-    </div>`;
-
-  return `
-  <div class="sheet-card">
-    <div class="sheet-card-head">
-      <h2>منصرف الدفاتر</h2>
-      ${btns}
-    </div>
-    <table class="tbl">
-      <thead><tr><th>اسم الدفتر</th><th>العدد</th><th>سعر الدفتر</th><th>إجمالى السعر</th><th class="no-print" style="width:40px"></th></tr></thead>
-      <tbody id="daftar-body">${rowsHtml}</tbody>
-      <tfoot><tr><td colspan="3">الإجمالى الكلى</td><td class="num" id="daf-grand">${fmt(grand)}</td><td class="no-print"></td></tr></tfoot>
-    </table>
-  </div>`;
-}
-function recalcDaftar(){
-  const m = getCurrentMonth(); if(!m) return;
-  const rows = m.daftar;
-  rows.forEach((r,i)=>{
-    setText('daf-t-'+i, fmt((Number(r[1])||0)*(Number(r[2])||0)));
-  });
-  const grand = rows.reduce((s,r)=> s + (Number(r[1])||0)*(Number(r[2])||0), 0);
-  setText('daf-grand', fmt(grand));
-}
-
 /* --- شيت توزيع الأشخاص --- */
 function renderPeopleLegacy(m){
   const rows = m.people;
@@ -2423,9 +2424,16 @@ function ensurePeopleDist(m){
 
 /* الوعاء العام = القابل للتوزيع − إجمالى مستحقات الأقسام الخاصة */
 function computeGeneralRemainder(m){
-  const net = sumCol(m.income,1) - sumCol(m.expense,1);
-  const distributable = net - (m.deduct15 ? net*0.15 : 0);
+  ensureXData(m);
   const calc = computeDeptDistribution(m);
+  const t = computeXTotals(m);
+  if(t.hasData){
+    // الشهور الجديدة: الوعاء العام = نسبة الأطباء والعاملين (50%) من صافى الإيراد فى صفحة الإيرادات
+    return { calc, generalRemainder: t.net * X_SPLITS[0][0] / 100 - calc.totalDeptFees };
+  }
+  // شهور قديمة محفوظة بالطريقة السابقة
+  const net = sumCol(m.income||[],1) - sumCol(m.expense||[],1);
+  const distributable = net - (m.deduct15 ? net*0.15 : 0);
   return { calc, generalRemainder: distributable - calc.totalDeptFees };
 }
 
@@ -2510,7 +2518,7 @@ function renderPeopleSheet(m){
   const poolCells = PEOPLE_ALL_COLS.map(c=>{
     const pv = peoplePoolVal(pd, c.k);
     if(locked) return `<td class="num pd-pool">${pv===null ? '' : fmtNum(pv)}</td>`;
-    const hint = c.pool ? `المقترح من صفحة الإيرادات والتوزيع: ${fmtNum(c.pool(calc, generalRemainder))}` : 'اكتب الوعاء المتاح لهذا العمود';
+    const hint = c.pool ? `المقترح من صفحة الإيرادات: ${fmtNum(c.pool(calc, generalRemainder))}` : 'اكتب الوعاء المتاح لهذا العمود';
     return `<td class="pd-pool"><input type="number" step="0.01" class="cell-input" style="border:1px solid var(--b);text-align:center;min-width:84px;font-weight:900" title="${escapeHtml(hint)}" value="${pv===null ? '' : pv}" onchange="updatePeoplePool('${c.k}',this.value)"></td>`;
   }).join('');
   const distCells = PEOPLE_ALL_COLS.map(c=>`<td class="num" id="pd-dist-${c.k}">${fmtNum(pd.rows.reduce((s,r)=>s+(Number(r.v&&r.v[c.k])||0),0))}</td>`).join('');
@@ -2529,7 +2537,7 @@ function renderPeopleSheet(m){
     const label = `<div style="font-size:.6rem;font-weight:800;margin-bottom:3px;white-space:normal">الوعاء المتاح: ${escapeHtml(gname)}</div>`;
     if(locked) return `<td colspan="${g.cols.length}" class="pd-pool" style="text-align:center">${label}<b class="num">${gv===null ? '' : fmtNum(gv)}</b></td>`;
     const sugg = g.cols.reduce((s,c)=> s + (c.pool ? (Number(c.pool(calc, generalRemainder))||0) : 0), 0);
-    const hint = `المقترح من صفحة الإيرادات والتوزيع: ${fmtNum(sugg)}`;
+    const hint = `المقترح من صفحة الإيرادات: ${fmtNum(sugg)}`;
     return `<td colspan="${g.cols.length}" class="pd-pool" style="text-align:center">${label}<input type="number" step="0.01" class="cell-input" style="border:1px solid var(--b);text-align:center;max-width:170px;font-weight:900" title="${escapeHtml(hint)}" value="${gv===null ? '' : gv}" onchange="updatePeopleGroupPool('${gk}',this.value)"></td>`;
   }).join('');
   const poolTotal = PEOPLE_ALL_COLS.reduce((s,c)=> s + (peoplePoolVal(pd,c.k)||0), 0);
@@ -2581,8 +2589,8 @@ function renderPeopleSheet(m){
       ${btns}
     </div>
     <div style="font-size:.72rem;font-weight:700;color:var(--tm);margin-bottom:12px;line-height:1.7">
-      اكتب "الوعاء المتاح" لكل مجموعة (المعمل، الأشعة، ...) فى الخانة اللى فوق اسمها، ولكل عمود فى الصفوف اللى تحتها، بنفسك (لو وقفت بالماوس على الخانة هتشوف المبلغ المقترح من صفحة "الإيرادات والتوزيع"). بعدها اكتب نصيب كل شخص فى العمود المناسب، وصف "المتبقى" بيوضح الفرق بين الوعاء وما تم توزيعه (لو ظهر بالأحمر يبقى الموزَّع أكبر من الوعاء).
-      <br>الوعاء العام المتبقى بعد خصم مستحقات الأقسام: <b class="num" style="color:var(--a)">${fmtNum(generalRemainder)}</b>
+      اكتب "الوعاء المتاح" لكل مجموعة (المعمل، الأشعة، ...) فى الخانة اللى فوق اسمها، ولكل عمود فى الصفوف اللى تحتها، بنفسك (لو وقفت بالماوس على الخانة هتشوف المبلغ المقترح من صفحة "الإيرادات"). بعدها اكتب نصيب كل شخص فى العمود المناسب، وصف "المتبقى" بيوضح الفرق بين الوعاء وما تم توزيعه (لو ظهر بالأحمر يبقى الموزَّع أكبر من الوعاء).
+      <br>الوعاء العام المتاح للتوزيع على العاملين: <b class="num" style="color:var(--a)">${fmtNum(generalRemainder)}</b>
     </div>
     <div style="overflow-x:auto">
     <table class="tbl wide-log-tbl people-dist-tbl bordered-tbl">
