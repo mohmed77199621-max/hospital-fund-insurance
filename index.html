@@ -2510,6 +2510,7 @@ function renderPeopleSheet(m){
   </div>`;
 
   /* --- رؤوس الجدول الرئيسى (صفان مثل الإكسل) --- */
+  const pfIcon = (k)=> `<span class="col-filter-ic no-print ${(peopleFilters[k] instanceof Set)?'active':''}" onclick="togglePeopleFilterMenu('${k}',event)" title="فلتر">▾</span>`;
   const groupHead = PEOPLE_GROUPS.map(g=>`<th colspan="${g.cols.length}" style="background:${g.color};color:#fff">${escapeHtml(g.title)}</th>`).join('');
   const colHead = PEOPLE_GROUPS.map(g=> g.cols.map(c=>`<th style="background:${g.color};color:#fff;min-width:96px;white-space:normal;font-size:.62rem">${escapeHtml(c.label)} ${pfIcon(c.k)}</th>`).join('')).join('');
 
@@ -2535,7 +2536,6 @@ function renderPeopleSheet(m){
       <td class="num" style="font-weight:900;color:var(--a)" id="pd-rt-${i}">${fmtNum(peopleRowTotal(r))}</td>
       <td class="no-print">${locked?'':`<button class="btn-er" onclick="deletePeopleRow(${i})">✕</button>`}</td>
     </tr>`; }).join('') || `<tr><td colspan="${5+PEOPLE_ALL_COLS.length+2}" style="color:var(--tm);font-weight:600">${pfActive.length ? 'لا توجد صفوف مطابقة للفلتر الحالى' : ('لا توجد بيانات بعد'+(locked?'':' — اضغط "➕ إضافة شخص"'))}</td></tr>`;
-  const pfIcon = (k)=> `<span class="col-filter-ic no-print ${(peopleFilters[k] instanceof Set)?'active':''}" onclick="togglePeopleFilterMenu('${k}',event)" title="فلتر">▾</span>`;
   const dupBar = dupTotal ? `<div class="load-more-bar no-print" style="background:#fdecea;border-color:#f1c7c1;margin-bottom:8px"><span>⚠ يوجد ${dupTotal} رقم قومى مكرر فى هذا الشهر (الصفوف المظللة بالأحمر) — صحّح أو احذف الصف المكرر</span></div>` : '';
   const pfBar = dupBar + (pfActive.length ? `<div class="load-more-bar no-print" style="background:#fbeedd;border-color:#eccf9c;margin-bottom:8px">
       <span>⚠ يوجد فلتر مُفعّل — يظهر ${visibleIdx.length} من ${pd.rows.length} شخص (صفوف الوعاء والموزَّع والمتبقى محسوبة على كل الأشخاص)</span>
