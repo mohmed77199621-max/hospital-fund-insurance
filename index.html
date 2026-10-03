@@ -243,11 +243,16 @@ input[type=number]{-moz-appearance:textfield}
 
 @media print{
   .no-print{display:none!important}
-  body{background:#fff}
+  body{background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}
   .app-shell{display:block}
   .main-content{padding:0}
-  .sheet-card{box-shadow:none;border:1px solid #ccc}
+  .sheet-card{box-shadow:none;border:1px solid #ccc;padding:6px;overflow:visible!important}
   .cell-input{border-color:transparent!important;background:transparent!important}
+  #sheet-container div{overflow:visible!important}
+  #sheet-container table{width:auto;min-width:0!important}
+  #sheet-container thead{display:table-header-group}
+  #sheet-container tfoot{display:table-footer-group}
+  #sheet-container tr{page-break-inside:avoid;break-inside:avoid}
 }
 
 .xtype{font-weight:900;color:var(--p);background:var(--s2);text-align:center!important;vertical-align:middle;width:70px}
@@ -344,6 +349,8 @@ const OLD_MONTHS_KEY_V2 = 'sohag_fund_months_v2';
 /* حالة فلاتر أعمدة السجل (مثل الإكسل) لكل فترة على حدة */
 let logFilters = { morning:{}, evening:{} };
 let openFilterMenu = null; // {which, col}
+let peopleFilters = {}; // فلاتر جدول توزيع الأشخاص: {مفتاح العمود: Set(قيم مسموحة)}
+let openPeopleFilterKey = null;
 
 let MONTHS = [];
 let currentMonthId = null;
@@ -999,6 +1006,7 @@ async function resetAllData(){
   currentMonthId = null;
   openMonths = new Set();
   logFilters = { morning:{}, evening:{} };
+  peopleFilters = {};
   closeColumnFilterOverlay();
   currentSheet = 'xrevenue';
 
@@ -1609,6 +1617,7 @@ function closeColumnFilterOverlay(){
   const ov = document.getElementById('colf-overlay');
   if(ov) ov.style.display = 'none';
   openFilterMenu = null;
+  openPeopleFilterKey = null;
 }
 
 function toggleColumnFilterMenu(session, colIdx, evt){
@@ -2393,6 +2402,14 @@ const PEOPLE_GROUPS = [
   { title:'العيادات', color:'#ef6c00', cols:[
     {k:'cl_doc',   label:'50% أطباء',  pool:(c)=>c.clinics.doctors},
     {k:'cl_nurse', label:'25% تمريض',  pool:(c)=>c.clinics.nursing} ]},
+  { title:'5% توزيعة أدوية نفقة الدولة', color:'#00897b', cols:[
+    {k:'x_drug',   label:'5% توزيعة أدوية نفقة الدولة', pool:null} ]},
+  { title:'توزيعة الكلى', color:'#8e24aa', cols:[
+    {k:'x_kidney', label:'توزيعة الكلى', pool:null} ]},
+  { title:'توزيعة الإشراف الطبى', color:'#c2185b', cols:[
+    {k:'x_medsup', label:'توزيعة الإشراف الطبى', pool:null} ]},
+  { title:'توزيعة إشراف التمريض', color:'#1565c0', cols:[
+    {k:'x_nursup', label:'توزيعة إشراف التمريض', pool:null} ]},
   { title:'المتبقى — الوعاء العام', color:'#0070c0', cols:[
     {k:'g_mgr',   label:'مدير المستشفى 2%',        pool:(c,r)=>r*0.02},
     {k:'g_dep',   label:'وكيل ونواب المدير 1%',     pool:(c,r)=>r*0.01},
@@ -2494,7 +2511,7 @@ function renderPeopleSheet(m){
 
   /* --- رؤوس الجدول الرئيسى (صفان مثل الإكسل) --- */
   const groupHead = PEOPLE_GROUPS.map(g=>`<th colspan="${g.cols.length}" style="background:${g.color};color:#fff">${escapeHtml(g.title)}</th>`).join('');
-  const colHead = PEOPLE_GROUPS.map(g=> g.cols.map(c=>`<th style="background:${g.color};color:#fff;min-width:96px;white-space:normal;font-size:.62rem">${escapeHtml(c.label)}</th>`).join('')).join('');
+  const colHead = PEOPLE_GROUPS.map(g=> g.cols.map(c=>`<th style="background:${g.color};color:#fff;min-width:96px;white-space:normal;font-size:.62rem">${escapeHtml(c.label)} ${pfIcon(c.k)}</th>`).join('')).join('');
 
   /* --- صفوف الأشخاص --- */
   const numCell = (r,i,c,g)=> locked
@@ -2503,16 +2520,27 @@ function renderPeopleSheet(m){
   const txtCell = (r,i,field,ph,w)=> locked
     ? `<td>${escapeHtml(r[field])}</td>`
     : `<td><input class="cell-input name-input" style="border:1px solid var(--b);min-width:${w}px" placeholder="${ph}" value="${escapeHtml(r[field]||'')}" onchange="updatePeopleText(${i},'${field}',this.value)"></td>`;
-  const bodyHtml = pd.rows.map((r,i)=>`<tr>
+  const pfActive = Object.keys(peopleFilters).filter(k=>peopleFilters[k] instanceof Set);
+  const visibleIdx = pd.rows.map((r,i)=>i).filter(i=> pfActive.every(k=> peopleFilters[k].has(peopleCellDisplay(pd.rows[i],k) || '(فارغ)')));
+  const nidCount = {};
+  pd.rows.forEach(r=>{ const k = normNid(r.nid); if(k) nidCount[k] = (nidCount[k]||0)+1; });
+  const dupTotal = Object.keys(nidCount).filter(k=>nidCount[k]>1).length;
+  const bodyHtml = visibleIdx.map(i=>{ const r = pd.rows[i]; const isDup = nidCount[normNid(r.nid)]>1; return `<tr${isDup?' style="background:#ffe5e2" title="رقم قومى مكرر"':''}>
       <td class="num">${i+1}</td>
-      ${txtCell(r,i,'nid','الرقم القومى',130)}
+      ${txtCell(r,i,'nid','الرقم القومى',130).replace("onchange=\"updatePeopleText(","onchange=\"updatePeopleNid(")}
       ${txtCell(r,i,'name','الاسم',160)}
       ${txtCell(r,i,'spec','التخصص',100)}
       ${txtCell(r,i,'dept','القسم',100)}
       ${PEOPLE_GROUPS.map(g=>g.cols.map(c=>numCell(r,i,c,g)).join('')).join('')}
       <td class="num" style="font-weight:900;color:var(--a)" id="pd-rt-${i}">${fmtNum(peopleRowTotal(r))}</td>
       <td class="no-print">${locked?'':`<button class="btn-er" onclick="deletePeopleRow(${i})">✕</button>`}</td>
-    </tr>`).join('') || `<tr><td colspan="${5+PEOPLE_ALL_COLS.length+2}" style="color:var(--tm);font-weight:600">لا توجد بيانات بعد${locked?'':' — اضغط "➕ إضافة شخص"'}</td></tr>`;
+    </tr>`; }).join('') || `<tr><td colspan="${5+PEOPLE_ALL_COLS.length+2}" style="color:var(--tm);font-weight:600">${pfActive.length ? 'لا توجد صفوف مطابقة للفلتر الحالى' : ('لا توجد بيانات بعد'+(locked?'':' — اضغط "➕ إضافة شخص"'))}</td></tr>`;
+  const pfIcon = (k)=> `<span class="col-filter-ic no-print ${(peopleFilters[k] instanceof Set)?'active':''}" onclick="togglePeopleFilterMenu('${k}',event)" title="فلتر">▾</span>`;
+  const dupBar = dupTotal ? `<div class="load-more-bar no-print" style="background:#fdecea;border-color:#f1c7c1;margin-bottom:8px"><span>⚠ يوجد ${dupTotal} رقم قومى مكرر فى هذا الشهر (الصفوف المظللة بالأحمر) — صحّح أو احذف الصف المكرر</span></div>` : '';
+  const pfBar = dupBar + (pfActive.length ? `<div class="load-more-bar no-print" style="background:#fbeedd;border-color:#eccf9c;margin-bottom:8px">
+      <span>⚠ يوجد فلتر مُفعّل — يظهر ${visibleIdx.length} من ${pd.rows.length} شخص (صفوف الوعاء والموزَّع والمتبقى محسوبة على كل الأشخاص)</span>
+      <button class="btn btn-o btn-sm" onclick="clearAllPeopleFilters()">✕ مسح كل الفلاتر</button>
+    </div>` : '');
 
   /* --- صفوف التذييل: الوعاء المتاح / الموزَّع فعلًا / المتبقى --- */
   const poolCells = PEOPLE_ALL_COLS.map(c=>{
@@ -2551,7 +2579,7 @@ function renderPeopleSheet(m){
   const addEmpCard = locked ? '' : `<div class="sheet-card no-print">
     <h2>إضافة موظف جديد</h2>
     <div class="entry-form-grid" style="margin-top:14px">
-      <div class="ef-field"><label>الرقم القومى</label><input id="np-nid" class="cell-input" style="border:1px solid var(--b);text-align:center" inputmode="numeric" maxlength="14" placeholder="14 رقم" onkeydown="if(event.key==='Enter')addPersonFromForm()"></div>
+      <div class="ef-field"><label>الرقم القومى</label><input id="np-nid" class="cell-input" style="border:1px solid var(--b);text-align:center" inputmode="numeric" maxlength="14" placeholder="14 رقم" onchange="autofillFormFromNid()" onkeydown="if(event.key==='Enter')addPersonFromForm()"></div>
       <div class="ef-field"><label>الاسم *</label><input id="np-name" class="cell-input name-input" style="border:1px solid var(--b)" placeholder="اسم الموظف" onkeydown="if(event.key==='Enter')addPersonFromForm()"></div>
       <div class="ef-field"><label>التخصص</label><input id="np-spec" class="cell-input name-input" style="border:1px solid var(--b)" placeholder="مثال: باطنة" onkeydown="if(event.key==='Enter')addPersonFromForm()"></div>
       <div class="ef-field"><label>القسم</label><input id="np-dept" class="cell-input name-input" list="pd-dept-list" style="border:1px solid var(--b)" placeholder="مثال: الباطنة" onkeydown="if(event.key==='Enter')addPersonFromForm()"></div>
@@ -2592,6 +2620,7 @@ function renderPeopleSheet(m){
       اكتب "الوعاء المتاح" لكل مجموعة (المعمل، الأشعة، ...) فى الخانة اللى فوق اسمها، ولكل عمود فى الصفوف اللى تحتها، بنفسك (لو وقفت بالماوس على الخانة هتشوف المبلغ المقترح من صفحة "الإيرادات"). بعدها اكتب نصيب كل شخص فى العمود المناسب، وصف "المتبقى" بيوضح الفرق بين الوعاء وما تم توزيعه (لو ظهر بالأحمر يبقى الموزَّع أكبر من الوعاء).
       <br>الوعاء العام المتاح للتوزيع على العاملين: <b class="num" style="color:var(--a)">${fmtNum(generalRemainder)}</b>
     </div>
+    ${pfBar}
     <div style="overflow-x:auto">
     <table class="tbl wide-log-tbl people-dist-tbl bordered-tbl">
       <thead>
@@ -2600,7 +2629,7 @@ function renderPeopleSheet(m){
         <tr class="pd-foot"><td colspan="5">الوعاء المتاح لكل عمود (إدخال يدوى)</td>${poolCells}<td class="num" id="pd-pool-total">${fmtNum(poolTotal)}</td><td class="no-print"></td></tr>
         <tr class="pd-foot"><td colspan="5"><span id="pd-count-lbl">الموزَّع فعلًا (${pd.rows.length} شخص)</span></td>${distCells}<td class="num" id="pd-grand">${fmtNum(grandDist)}</td><td class="no-print"></td></tr>
         <tr class="pd-foot"><td colspan="5">المتبقى غير الموزَّع</td>${remCells}<td class="num" id="pd-rem-total">${fmtNum(poolTotal-grandDist)}</td><td class="no-print"></td></tr>
-        <tr><th style="width:40px">م</th><th style="background:#fff59d">الرقم القومى</th><th style="background:#fff59d">الاسم</th><th style="background:#fff59d">التخصص</th><th style="background:#fff59d">القسم</th>${colHead}<th>إجمالى الشخص</th><th class="no-print"></th></tr>
+        <tr><th style="width:40px">م</th><th style="background:#fff59d">الرقم القومى ${pfIcon('nid')}</th><th style="background:#fff59d">الاسم ${pfIcon('name')}</th><th style="background:#fff59d">التخصص ${pfIcon('spec')}</th><th style="background:#fff59d">القسم ${pfIcon('dept')}</th>${colHead}<th>إجمالى الشخص ${pfIcon('__total')}</th><th class="no-print"></th></tr>
       </thead>
       <tbody>${bodyHtml}</tbody>
     </table>
@@ -2711,20 +2740,149 @@ function deletePeopleOfficial(i){
   scheduleAutoSave();
   renderSheet();
 }
+/* --- البحث بالرقم القومى فى الشهور السابقة (الأحدث أولًا) لجلب الاسم والتخصص والقسم --- */
+function normNid(x){
+  return String(x==null?'':x).replace(/[٠-٩]/g,d=>'٠١٢٣٤٥٦٧٨٩'.indexOf(d)).replace(/\D/g,'');
+}
+function lookupPersonByNid(nid, skipMonthId){
+  const key = normNid(nid);
+  if(key.length < 10) return null;
+  const found = {};
+  for(let mi=MONTHS.length-1; mi>=0; mi--){
+    const mm = MONTHS[mi];
+    if(skipMonthId!==undefined && mm.id===skipMonthId && false) continue;
+    const rows = (mm.peopleDist && Array.isArray(mm.peopleDist.rows)) ? mm.peopleDist.rows : [];
+    for(let ri=rows.length-1; ri>=0; ri--){
+      const r = rows[ri];
+      if(normNid(r.nid)!==key) continue;
+      ['name','spec','dept'].forEach(f=>{ if(!found[f] && String(r[f]||'').trim()) found[f] = String(r[f]).trim(); });
+    }
+    if(found.name && found.spec && found.dept) break;
+  }
+  return (found.name || found.spec || found.dept) ? found : null;
+}
+/* يكمّل الحقول الفارغة فقط من الشهور السابقة؛ يرجع true لو غيّر شيئًا */
+function fillPersonFromHistory(p){
+  const hit = lookupPersonByNid(p.nid);
+  if(!hit) return false;
+  let changed = false;
+  ['name','spec','dept'].forEach(f=>{
+    if(!String(p[f]||'').trim() && hit[f]){ p[f] = hit[f]; changed = true; }
+  });
+  return changed;
+}
+function autofillFormFromNid(){
+  const nidEl = document.getElementById('np-nid'); if(!nidEl) return;
+  const mCur = getCurrentMonth();
+  if(mCur){
+    const dupF = findDuplicateNid(ensurePeopleDist(mCur), nidEl.value, -1);
+    if(dupF){ alert(dupNidMessage(dupF)); nidEl.value = ''; nidEl.focus(); return; }
+  }
+  const hit = lookupPersonByNid(nidEl.value); if(!hit) return;
+  [['np-name','name'],['np-spec','spec'],['np-dept','dept']].forEach(([id,f])=>{
+    const el = document.getElementById(id);
+    if(el && !String(el.value||'').trim() && hit[f]) el.value = hit[f];
+  });
+  toastSaved('✔ تم جلب البيانات من الشهور السابقة');
+}
+/* يرجع الشخص المسجَّل بنفس الرقم القومى فى الشهر الحالى (غير الصف exceptIdx) أو null */
+function findDuplicateNid(pd, nid, exceptIdx){
+  const key = normNid(nid);
+  if(!key) return null;
+  const j = pd.rows.findIndex((x,idx)=> idx!==exceptIdx && normNid(x.nid)===key);
+  return j>=0 ? { idx:j, row:pd.rows[j] } : null;
+}
+function dupNidMessage(d){
+  return 'الرقم القومى ده مسجَّل بالفعل فى هذا الشهر'+(d.row.name?' للموظف: '+d.row.name:'')+' (صف رقم '+(d.idx+1)+').\nلا يمكن تكرار الرقم القومى.';
+}
+function updatePeopleNid(i, field, value){
+  const m = getCurrentMonth(); if(!m || m.locked) return;
+  const pd = ensurePeopleDist(m);
+  const r = pd.rows[i]; if(!r) return;
+  const dup = findDuplicateNid(pd, value, i);
+  if(dup){ alert(dupNidMessage(dup)); renderSheet(); return; }
+  r.nid = value;
+  const changed = fillPersonFromHistory(r);
+  scheduleAutoSave();
+  if(changed){ renderSheet(); toastSaved('✔ تم جلب الاسم والتخصص من الشهور السابقة'); }
+}
 function addPersonFromForm(){
   const m = getCurrentMonth(); if(!m || m.locked) return;
   const g = id => String((document.getElementById(id)||{}).value||'').trim();
-  const nid = g('np-nid'), name = g('np-name'), spec = g('np-spec'), dept = g('np-dept');
+  let nid = g('np-nid'), name = g('np-name'), spec = g('np-spec'), dept = g('np-dept');
+  if(nid){
+    const hit = lookupPersonByNid(nid);
+    if(hit){ name = name || hit.name || ''; spec = spec || hit.spec || ''; dept = dept || hit.dept || ''; }
+  }
   if(!name){ alert('اكتب اسم الموظف أولًا.'); const el = document.getElementById('np-name'); if(el) el.focus(); return; }
   const pd = ensurePeopleDist(m);
-  if(nid && pd.rows.some(r=>String(r.nid||'').trim()===nid)){
-    if(!confirm('الرقم القومى ده موجود بالفعل لموظف تانى. تضيفه برضه؟')) return;
-  }
+  const dupForm = findDuplicateNid(pd, nid, -1);
+  if(dupForm){ alert(dupNidMessage(dupForm)); const el = document.getElementById('np-nid'); if(el) el.focus(); return; }
   pd.rows.push({ nid, name, spec, dept, v:{} });
   scheduleAutoSave();
   renderSheet();
   toastSaved('✔ تمت إضافة الموظف');
   const el = document.getElementById('np-nid'); if(el) el.focus();
+}
+/* --- فلتر الأعمدة لجدول توزيع الأشخاص (مثل فلتر الإكسل) --- */
+function peopleCellDisplay(r, k){
+  if(k==='nid'||k==='name'||k==='spec'||k==='dept') return String(r[k]||'').trim();
+  if(k==='__total'){ const t = peopleRowTotal(r); return t ? fmtNum(t) : ''; }
+  const v = Number(r.v && r.v[k])||0;
+  return v ? fmtNum(v) : '';
+}
+function peopleFilterValues(k){
+  const m = getCurrentMonth(); if(!m) return [];
+  const set = new Set();
+  ensurePeopleDist(m).rows.forEach(r=> set.add(peopleCellDisplay(r,k) || '(فارغ)'));
+  return Array.from(set).sort((a,b)=>a.localeCompare(b,'ar',{numeric:true}));
+}
+function togglePeopleFilterMenu(k, evt){
+  if(evt) evt.stopPropagation();
+  if(openPeopleFilterKey===k){ closeColumnFilterOverlay(); openPeopleFilterKey=null; return; }
+  openPeopleFilterKey = k;
+  const ov = document.getElementById('colf-overlay'); if(!ov) return;
+  const values = peopleFilterValues(k);
+  const active = peopleFilters[k] instanceof Set ? peopleFilters[k] : null;
+  const rowsHtml = values.map(v=>`<label style="display:flex;align-items:center;gap:6px;padding:3px 4px;font-size:.72rem;font-weight:700;cursor:pointer"><input type="checkbox" class="colf-chk" value="${escapeHtml(v)}" ${(active?active.has(v):true)?'checked':''}> ${escapeHtml(v)}</label>`).join('') || '<div style="font-size:.7rem;color:var(--tm);padding:4px">لا توجد قيم</div>';
+  ov.innerHTML = `
+    <input type="search" placeholder="بحث..." oninput="peopleFilterSearch(this.value)" style="width:100%;box-sizing:border-box;border:1px solid var(--b);border-radius:6px;padding:4px 6px;font-family:inherit;font-size:.7rem;margin-bottom:6px">
+    <div class="colf-actions"><button type="button" onclick="colfSelectAll(true)">تحديد الكل</button><button type="button" onclick="colfSelectAll(false)">إلغاء الكل</button></div>
+    <div class="colf-values">${rowsHtml}</div>
+    <div class="colf-actions" style="border-top:1px solid var(--b);padding-top:6px"><button type="button" class="colf-apply" onclick="applyPeopleFilter('${k}')">✔ تطبيق</button><button type="button" onclick="clearPeopleFilter('${k}')">مسح الفلتر</button></div>`;
+  ov.style.display = 'block';
+  const icon = evt && evt.currentTarget;
+  if(icon){
+    const rect = icon.getBoundingClientRect(); const width = 200;
+    let left = rect.left - width + rect.width;
+    left = Math.max(8, Math.min(left, window.innerWidth - width - 8));
+    ov.style.left = left + 'px'; ov.style.top = (rect.bottom + 6) + 'px';
+  }
+}
+function peopleFilterSearch(q){
+  const ov = document.getElementById('colf-overlay'); if(!ov) return;
+  const needle = String(q||'').trim();
+  ov.querySelectorAll('.colf-values label').forEach(l=>{
+    l.style.display = (!needle || l.textContent.indexOf(needle)>=0) ? 'flex' : 'none';
+  });
+}
+function applyPeopleFilter(k){
+  const ov = document.getElementById('colf-overlay'); if(!ov) return;
+  const all = Array.from(ov.querySelectorAll('.colf-chk'));
+  const checked = all.filter(c=>c.checked).map(c=>c.value);
+  if(checked.length===all.length) delete peopleFilters[k]; else peopleFilters[k] = new Set(checked);
+  closeColumnFilterOverlay(); openPeopleFilterKey = null;
+  renderSheet();
+}
+function clearPeopleFilter(k){
+  delete peopleFilters[k];
+  closeColumnFilterOverlay(); openPeopleFilterKey = null;
+  renderSheet();
+}
+function clearAllPeopleFilters(){
+  peopleFilters = {};
+  closeColumnFilterOverlay(); openPeopleFilterKey = null;
+  renderSheet();
 }
 function updatePeopleText(i, field, value){
   const m = getCurrentMonth(); if(!m || m.locked) return;
@@ -2807,14 +2965,14 @@ function importPeopleFromFile(file){
         // بدون صف عناوين: الترتيب الافتراضى (الرقم القومى، الاسم، التخصص، القسم)
         colMap.nid=0; colMap.name=1; colMap.spec=2; colMap.dept=3;
       }
-      if(colMap.name===undefined){ alert('لم أجد عمود "الاسم" فى الملف. حمّل "نموذج الاستيراد" واستخدم نفس العناوين.'); return; }
+      if(colMap.name===undefined && colMap.nid===undefined){ alert('لم أجد عمود "الاسم" أو "الرقم القومى" فى الملف. حمّل "نموذج الاستيراد" واستخدم نفس العناوين.'); return; }
 
       const txt = (v)=> (typeof v==='number') ? String(Math.round(v)) : String(v==null?'':v).trim();
       const parsed = [];
       for(let i=headerIdx+1;i<rows.length;i++){
         const r = rows[i];
-        const name = String(r[colMap.name]==null?'':r[colMap.name]).trim();
-        if(!name) continue;
+         const name = colMap.name===undefined ? '' : String(r[colMap.name]==null?'':r[colMap.name]).trim();
+        if(!name && !(colMap.nid!==undefined && txt(r[colMap.nid]))) continue;
         const person = { nid: colMap.nid!==undefined?txt(r[colMap.nid]):'', name, spec: colMap.spec!==undefined?String(r[colMap.spec]).trim():'', dept: colMap.dept!==undefined?String(r[colMap.dept]).trim():'', v:{} };
         Object.keys(amountMap).forEach(k=>{
           const n = parseFloat(String(r[amountMap[k]]).replace(/,/g,''));
@@ -2823,15 +2981,28 @@ function importPeopleFromFile(file){
         parsed.push(person);
       }
       if(!parsed.length){ alert('لم يتم العثور على موظفين فى الملف.'); return; }
+      let filledCount = 0;
+      parsed.forEach(p=>{ if(p.nid && fillPersonFromHistory(p)) filledCount++; });
       const pd = ensurePeopleDist(m);
       let replace = false;
       if(pd.rows.length){
         replace = confirm('تم قراءة '+parsed.length+' موظف من الملف.\nاضغط "موافق" لاستبدال الموظفين الحاليين بالكامل،\nأو "إلغاء" لإضافتهم أسفل الموظفين الحاليين.');
       }
-      pd.rows = replace ? parsed : pd.rows.concat(parsed);
+      // منع تكرار الرقم القومى: نتخطى أى صف رقمه القومى موجود بالفعل (فى الملف نفسه أو فى الجدول الحالى)
+      const seenNids = new Set(replace ? [] : pd.rows.map(r=>normNid(r.nid)).filter(Boolean));
+      const toAdd = []; const skippedNames = [];
+      parsed.forEach(pp=>{
+        const k = normNid(pp.nid);
+        if(k){ if(seenNids.has(k)){ skippedNames.push((pp.name||'—')+' ('+pp.nid+')'); return; } seenNids.add(k); }
+        toAdd.push(pp);
+      });
+      pd.rows = replace ? toAdd : pd.rows.concat(toAdd);
       scheduleAutoSave();
       renderSheet();
-      toastSaved('✔ تم استيراد '+parsed.length+' موظف');
+      toastSaved('✔ تم استيراد '+toAdd.length+' موظف'+(filledCount?' — وتكملة بيانات '+filledCount+' من الشهور السابقة':''));
+      if(skippedNames.length){
+        alert('تم تخطى '+skippedNames.length+' صف لأن الرقم القومى مكرر (موجود بالفعل):\n\n'+skippedNames.slice(0,15).join('\n')+(skippedNames.length>15?'\n... و'+(skippedNames.length-15)+' آخرين':''));
+      }
     }catch(err){
       console.error(err);
       alert('تعذّرت قراءة الملف. تأكد أنه ملف إكسل صالح (xlsx أو xls أو csv).');
@@ -2882,6 +3053,36 @@ document.addEventListener('keydown', function(e){
     e.preventDefault();
   }
 });
+
+
+/* ============================================================
+   الطباعة: كل الصفوف وكل الأعمدة فى عرض ورقة واحدة
+   (تعمل مع زر الطباعة ومع Ctrl+P) — نقيس أعرض جدول ونصغّر الصفحة بالنسبة اللازمة، والورقة تتحول أفقى لو الجدول عريض
+   ============================================================ */
+let __printZoomEl = null;
+function applyPrintFit(){
+  const cont = document.getElementById('sheet-container'); if(!cont) return;
+  cont.style.zoom = '';
+  let maxW = 0;
+  cont.querySelectorAll('table').forEach(t=>{ maxW = Math.max(maxW, t.scrollWidth, t.offsetWidth); });
+  const PX_PER_MM = 96/25.4;
+  const margin = 8; // مم
+  const landscape = maxW > (210 - margin*2) * PX_PER_MM - 20;
+  const pageW = ((landscape ? 297 : 210) - margin*2) * PX_PER_MM;
+  const need = maxW + 24; // هامش بطاقة الشيت
+  const z = Math.max(0.2, Math.min(1, pageW / need));
+  let st = document.getElementById('print-page-style');
+  if(!st){ st = document.createElement('style'); st.id = 'print-page-style'; document.head.appendChild(st); }
+  st.textContent = '@page{size:A4 ' + (landscape ? 'landscape' : 'portrait') + ';margin:' + margin + 'mm}';
+  cont.style.zoom = String(z);
+  __printZoomEl = cont;
+}
+function clearPrintFit(){
+  if(__printZoomEl){ __printZoomEl.style.zoom = ''; __printZoomEl = null; }
+  const st = document.getElementById('print-page-style'); if(st) st.textContent = '';
+}
+window.addEventListener('beforeprint', applyPrintFit);
+window.addEventListener('afterprint', clearPrintFit);
 
 init();
 </script>
