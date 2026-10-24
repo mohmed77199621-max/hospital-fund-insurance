@@ -6,6 +6,7 @@
 <title>نظام توزيع صندوق تحسين الخدمة ومستحقات الأطباء والعاملين - مستشفى سوهاج العام</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Kufi+Arabic:wght@300;400;500;700;900&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
 <style>
@@ -262,6 +263,23 @@ input[type=number]{-moz-appearance:textfield}
 .xb-tbl .cell-input{min-width:66px}
 .xb-sum td{background:var(--s2);font-weight:900;color:var(--p)}
 .x-note{font-size:.72rem;font-weight:700;color:var(--tm);margin-bottom:12px;line-height:1.7}
+
+
+/* ===== خط كبير وواضح: إيرادات الخزنة + توزيع الأشخاص ===== */
+.big-font .sheet-card h2{font-size:1.25rem}
+.big-font .tbl{font-size:1.1rem}
+.big-font .tbl th{font-size:1.02rem!important;font-weight:900;color:#0b3d3a;padding:12px 10px;line-height:1.55}
+.big-font .tbl td{font-size:1.1rem;font-weight:800;color:#0b1f1c;padding:10px 9px}
+.big-font .cell-input,.big-font .locked-cell{font-size:1.1rem!important;font-weight:800;color:#000;padding:8px 6px}
+.big-font .cell-input[type=number]{min-width:124px!important}
+.big-font .people-dist-tbl .name-input{min-width:220px!important}
+.big-font .people-dist-tbl td:nth-child(2) .name-input{min-width:180px!important}
+.big-font div[style*="font-size:.72rem"]{font-size:1rem!important;color:#32504a!important}
+.big-font .pd-pool div[style*="font-size:.6rem"]{font-size:.95rem!important}
+.big-font .sign-item{font-size:1.05rem}
+.big-font .col-filter-ic{font-size:.95rem}
+.big-font .btn-sm{font-size:.9rem;padding:9px 15px}
+.big-font .ef-field label{font-size:1rem;font-weight:800}
 
 /* ===== طباعة صفحة واحدة بخط كبير وواضح: الإيرادات وصافى التوزيع / المنصرف / توريد البنك ===== */
 body.pf-one{background:#fff;color:#000}
@@ -2264,6 +2282,7 @@ function renderTreasurySheet(){
   }).join('') + `<td class="num" style="font-weight:900;color:var(--a)">${fmtNum(grandTotal)}</td><td class="no-print"></td>`;
 
   return `
+  <div class="big-font">
   <div class="sheet-card">
     <div class="sheet-card-head">
       <h2>🏦 الخزنة الرئيسية — إيصال 37 (الخزنة وتوريد البنك)</h2>
@@ -2282,6 +2301,7 @@ function renderTreasurySheet(){
       <tfoot><tr>${totalsRow}</tr></tfoot>
     </table>
     </div>
+  </div>
   </div>`;
 }
 
@@ -2305,7 +2325,7 @@ function deleteTreasuryRow(idx){
   storageSet(TREASURY_KEY, JSON.stringify(TREASURY_ROWS));
   renderSheet();
 }
-function exportTreasuryToExcel(){
+function exportTreasuryToExcelPlain(){
   if(!TREASURY_ROWS.length){ alert('لا توجد بيانات لتصديرها.'); return; }
   const header = TREASURY_COLS.map(c=>c.label).concat('الإجمالى');
   const aoa = [header];
@@ -2619,6 +2639,7 @@ function renderPeopleSheet(m){
     ? `<div class="sheet-card"><details><summary style="cursor:pointer;font-weight:900;color:var(--p)">📂 الجدول القديم لتوزيع الأشخاص (${m.people.length} صف — محفوظ للمراجعة)</summary>${renderPeopleLegacy(m)}</details></div>` : '';
 
   return `
+  <div class="big-font">
   ${addEmpCard}
   <div class="sheet-card">
     <div style="text-align:center;font-weight:900;color:var(--p);line-height:1.8;margin-bottom:6px">مديرية الشئون الصحية بسوهاج<br>مستشفى سوهاج العام</div>
@@ -2667,6 +2688,7 @@ function renderPeopleSheet(m){
       <div class="sign-item">المدير المالى والإدارى<span>...............</span></div>
       <div class="sign-item">يعتمد<span>...............</span></div>
     </div>
+  </div>
   </div>`;
 }
 
@@ -3035,7 +3057,7 @@ function importPeopleFromFile(file){
   reader.readAsArrayBuffer(file);
 }
 
-function exportPeopleToExcel(){
+function exportPeopleToExcelPlain(){
   const m = getCurrentMonth(); if(!m) return;
   const pd = ensurePeopleDist(m);
   if(!pd.rows.length){ alert('لا توجد بيانات لتصديرها.'); return; }
@@ -3050,6 +3072,234 @@ function exportPeopleToExcel(){
   XLSX.utils.book_append_sheet(wb, ws, 'توزيع الأشخاص');
   const safeLabel = String(m.label||'').replace(/[\\/:*?"<>|]/g,'-');
   XLSX.writeFile(wb, `توزيع الأشخاص - ${safeLabel}.xlsx`);
+}
+
+
+/* ============================================================
+   تصدير إكسل بنفس شكل وألوان الصفحة (ExcelJS) — خط كبير، ألوان المجموعات، حدود، اتجاه من اليمين لليسار
+   ============================================================ */
+const XL_FONT = 'Arial';
+const xlArgb = c => 'FF' + String(c).replace('#','').toUpperCase();
+const XL_B = {style:'thin', color:{argb:'FF7F8F88'}};
+const XL_BORDERS = {top:XL_B, left:XL_B, bottom:XL_B, right:XL_B};
+const XL_NUM = '#,##0.00';
+function xlStyle(cell, o){
+  o = o || {};
+  cell.font = {name:XL_FONT, size:o.size||12, bold:o.bold!==false, color:{argb:xlArgb(o.color||'#000000')}};
+  if(o.fill) cell.fill = {type:'pattern', pattern:'solid', fgColor:{argb:xlArgb(o.fill)}};
+  cell.alignment = {horizontal:o.h||'center', vertical:'middle', wrapText:o.wrap!==false, readingOrder:'rtl'};
+  if(o.border!==false) cell.border = XL_BORDERS;
+  if(o.numFmt) cell.numFmt = o.numFmt;
+}
+/* خلية (أو نطاق مدموج) بقيمة وتنسيق — كل خلايا النطاق تأخذ نفس التنسيق ليظهر الإطار كاملًا */
+function xlPut(ws, r, c1, c2, value, o){
+  for(let c=c1;c<=c2;c++) xlStyle(ws.getCell(r,c), o);
+  ws.getCell(r,c1).value = value;
+  if(c2>c1) ws.mergeCells(r,c1,r,c2);
+}
+async function xlDownload(wb, filename){
+  const buf = await wb.xlsx.writeBuffer();
+  const blob = new Blob([buf], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 1500);
+}
+const XL_HEAD = {fill:'#eef5f3', color:'#0b3d3a', size:12};
+const XL_FOOT = {fill:'#eef5f3', color:'#0b3d3a', size:13};
+
+async function exportTreasuryToExcel(){
+  if(!TREASURY_ROWS.length){ alert('لا توجد بيانات لتصديرها.'); return; }
+  if(typeof ExcelJS === 'undefined'){ return exportTreasuryToExcelPlain(); }
+  try{
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('إيرادات الخزنة', {views:[{rightToLeft:true, state:'frozen', ySplit:2}]});
+    const nC = TREASURY_COLS.length + 1;
+    TREASURY_COLS.forEach((c,i)=>{
+      ws.getColumn(i+1).width = c.type==='num' ? 17 : Math.max(13, Math.round((parseInt(c.width)||90)/6));
+    });
+    ws.getColumn(nC).width = 19;
+    ws.getColumn(1).width = 8;
+    ws.getRow(1).height = 34;
+    xlPut(ws,1,1,nC,'🏦 الخزنة الرئيسية — إيصال 37 (الخزنة وتوريد البنك)',{size:16,color:'#0b3d3a',border:false,h:'right'});
+    TREASURY_COLS.forEach((c,i)=> xlPut(ws,2,i+1,i+1,c.label,XL_HEAD));
+    xlPut(ws,2,nC,nC,'الإجمالى',XL_HEAD);
+    ws.getRow(2).height = 36;
+    TREASURY_ROWS.forEach((r,ri)=>{
+      const row = 3 + ri;
+      TREASURY_COLS.forEach((c,i)=>{
+        const v = r[c.key]===undefined||r[c.key]===null ? '' : r[c.key];
+        if(c.type==='num') xlPut(ws,row,i+1,i+1,Number(v)||0,{numFmt:XL_NUM});
+        else xlPut(ws,row,i+1,i+1,String(v),{h:c.type==='text'&&c.key==='notes'?'right':'center'});
+      });
+      xlPut(ws,row,nC,nC,treasuryRowTotal(r),{numFmt:XL_NUM,color:'#c17817'});
+      ws.getRow(row).height = 24;
+    });
+    const tr = 3 + TREASURY_ROWS.length;
+    const firstSum = TREASURY_COLS.findIndex(c=>TREASURY_SUM_KEYS.includes(c.key));
+    xlPut(ws,tr,1,firstSum,`الإجمالى (${TREASURY_ROWS.length} إيصال)`,XL_FOOT);
+    TREASURY_COLS.forEach((c,i)=>{
+      if(i<firstSum) return;
+      if(TREASURY_SUM_KEYS.includes(c.key)) xlPut(ws,tr,i+1,i+1,TREASURY_ROWS.reduce((x,r)=>x+(Number(r[c.key])||0),0),Object.assign({numFmt:XL_NUM},XL_FOOT));
+      else xlPut(ws,tr,i+1,i+1,'',XL_FOOT);
+    });
+    xlPut(ws,tr,nC,nC,TREASURY_ROWS.reduce((x,r)=>x+treasuryRowTotal(r),0),{fill:'#eef5f3',color:'#c17817',size:13,numFmt:XL_NUM});
+    ws.getRow(tr).height = 30;
+    ws.pageSetup = {paperSize:9, orientation:'landscape', fitToPage:true, fitToWidth:1, fitToHeight:0, margins:{left:.3,right:.3,top:.4,bottom:.4,header:.2,footer:.2}};
+    ws.pageSetup.printTitlesRow = '2:2';
+    await xlDownload(wb, 'إيرادات الخزنة.xlsx');
+  }catch(err){
+    console.error(err);
+    alert('تعذّر إنشاء الملف المنسّق، سيتم تصدير نسخة عادية.');
+    exportTreasuryToExcelPlain();
+  }
+}
+
+async function exportPeopleToExcel(){
+  const m = getCurrentMonth(); if(!m) return;
+  const pd = ensurePeopleDist(m);
+  if(!pd.rows.length){ alert('لا توجد بيانات لتصديرها.'); return; }
+  if(typeof ExcelJS === 'undefined'){ return exportPeopleToExcelPlain(); }
+  try{
+    const wb = new ExcelJS.Workbook();
+    const N = PEOPLE_ALL_COLS.length;
+    const FIRST = 6, LAST = FIRST + N;          // عمود "إجمالى الشخص" = LAST
+    const ws = wb.addWorksheet('توزيع الأشخاص', {views:[{rightToLeft:true, state:'frozen', ySplit:7}]});
+    ws.getColumn(1).width = 7; ws.getColumn(2).width = 21; ws.getColumn(3).width = 32; ws.getColumn(4).width = 18; ws.getColumn(5).width = 18;
+    for(let c=FIRST;c<LAST;c++) ws.getColumn(c).width = 18;
+    ws.getColumn(LAST).width = 19;
+
+    /* العنوان */
+    xlPut(ws,1,1,LAST,'مديرية الشئون الصحية بسوهاج\nمستشفى سوهاج العام\nتوزيع مستحقات صندوق تحسين الخدمة على الأشخاص — '+(m.label||''),{size:16,color:'#0b3d3a',border:false});
+    ws.getRow(1).height = 78;
+
+    const distOf = k => pd.rows.reduce((s,r)=> s + (Number(r.v&&r.v[k])||0), 0);
+    const poolTotal = PEOPLE_ALL_COLS.reduce((s,c)=> s + (peoplePoolVal(pd,c.k)||0), 0);
+    const grandDist = pd.rows.reduce((s,r)=> s + peopleRowTotal(r), 0);
+    const FOOT = {fill:'#eef5f3', color:'#0b3d3a', size:12};
+    const POOL = {fill:'#fff8e1', color:'#000000', size:12, numFmt:XL_NUM};
+
+    /* 2) الوعاء المتاح للمجموعة */
+    xlPut(ws,2,1,5,'الوعاء المتاح للمجموعة (إدخال يدوى)',FOOT);
+    let col = FIRST;
+    PEOPLE_GROUPS.forEach(g=>{
+      const raw = pd.groupPool[g.cols[0].k];
+      const gv = (raw===undefined||raw===null||raw==='') ? null : (Number(raw)||0);
+      const txt = 'الوعاء المتاح: ' + g.title.split('—')[0].trim() + (gv===null ? '' : '\n' + fmtNum(gv));
+      xlPut(ws,2,col,col+g.cols.length-1,txt,{fill:'#fff8e1',size:12});
+      col += g.cols.length;
+    });
+    xlPut(ws,2,LAST,LAST,'',FOOT);
+    ws.getRow(2).height = 50;
+
+    /* 3) عناوين المجموعات بألوانها */
+    xlPut(ws,3,1,5,'',{fill:'#eef5f3'});
+    col = FIRST;
+    PEOPLE_GROUPS.forEach(g=>{
+      xlPut(ws,3,col,col+g.cols.length-1,g.title,{fill:g.color,color:'#ffffff',size:13});
+      col += g.cols.length;
+    });
+    xlPut(ws,3,LAST,LAST,'',{fill:'#eef5f3'});
+    ws.getRow(3).height = 32;
+
+    /* 4) الوعاء المتاح لكل عمود / 5) الموزَّع فعلًا / 6) المتبقى */
+    xlPut(ws,4,1,5,'الوعاء المتاح لكل عمود (إدخال يدوى)',FOOT);
+    xlPut(ws,5,1,5,`الموزَّع فعلًا (${pd.rows.length} شخص)`,FOOT);
+    xlPut(ws,6,1,5,'المتبقى غير الموزَّع',FOOT);
+    PEOPLE_ALL_COLS.forEach((c,i)=>{
+      const cc = FIRST + i, pv = peoplePoolVal(pd,c.k), dist = distOf(c.k);
+      xlPut(ws,4,cc,cc,pv===null?'':pv,POOL);
+      xlPut(ws,5,cc,cc,dist,Object.assign({},FOOT,{numFmt:XL_NUM}));
+      if(pv===null) xlPut(ws,6,cc,cc,'',FOOT);
+      else { const rem = pv - dist; xlPut(ws,6,cc,cc,rem,Object.assign({},FOOT,{numFmt:XL_NUM,color:rem<-0.005?'#b3261e':'#0b3d3a'})); }
+    });
+    xlPut(ws,4,LAST,LAST,poolTotal,Object.assign({},FOOT,{numFmt:XL_NUM}));
+    xlPut(ws,5,LAST,LAST,grandDist,Object.assign({},FOOT,{numFmt:XL_NUM}));
+    xlPut(ws,6,LAST,LAST,poolTotal-grandDist,Object.assign({},FOOT,{numFmt:XL_NUM}));
+    [4,5,6].forEach(r=> ws.getRow(r).height = 28);
+
+    /* 7) رؤوس الأعمدة — نفس الشكل: أصفر للبيانات الأساسية، ولون المجموعة للأعمدة */
+    const plainCount = {};
+    PEOPLE_ALL_COLS.forEach(c=>{ const k=normHeader(c.label); plainCount[k]=(plainCount[k]||0)+1; });
+    xlPut(ws,7,1,1,'م',XL_HEAD);
+    [['الرقم القومى',2],['الاسم',3],['التخصص',4],['القسم',5]].forEach(([t,cc])=> xlPut(ws,7,cc,cc,t,{fill:'#fff59d',color:'#000000',size:13}));
+    let maxLen = 12;
+    PEOPLE_GROUPS.forEach(g=> g.cols.forEach(c=>{
+      const cc = FIRST + PEOPLE_ALL_COLS.indexOf(c);
+      const t = plainCount[normHeader(c.label)]>1 ? peopleColHeader(c) : c.label; // العناوين المتكررة تحمل اسم المجموعة ليظل الاستيراد دقيقًا
+      maxLen = Math.max(maxLen, t.length);
+      xlPut(ws,7,cc,cc,t,{fill:g.color,color:'#ffffff',size:12});
+    }));
+    xlPut(ws,7,LAST,LAST,'إجمالى الشخص',XL_HEAD);
+    ws.getRow(7).height = Math.min(190, Math.max(40, Math.ceil(maxLen/14)*19));
+
+    /* صفوف الأشخاص */
+    const nidCount = {};
+    pd.rows.forEach(r=>{ const k = normNid(r.nid); if(k) nidCount[k] = (nidCount[k]||0)+1; });
+    pd.rows.forEach((r,i)=>{
+      const row = 8 + i;
+      const dup = nidCount[normNid(r.nid)] > 1;
+      const base = dup ? {fill:'#ffe5e2'} : {};
+      xlPut(ws,row,1,1,i+1,base);
+      xlPut(ws,row,2,2,String(r.nid||''),base);
+      xlPut(ws,row,3,3,String(r.name||''),Object.assign({h:'right'},base));
+      xlPut(ws,row,4,4,String(r.spec||''),base);
+      xlPut(ws,row,5,5,String(r.dept||''),base);
+      PEOPLE_ALL_COLS.forEach((c,k)=>{
+        const v = Number(r.v&&r.v[c.k])||0;
+        xlPut(ws,row,FIRST+k,FIRST+k,v?v:'',Object.assign({numFmt:XL_NUM},base));
+      });
+      xlPut(ws,row,LAST,LAST,peopleRowTotal(r),{numFmt:XL_NUM,color:'#c17817',fill:dup?'#ffe5e2':undefined});
+      ws.getRow(row).height = 24;
+    });
+    ws.pageSetup = {paperSize:9, orientation:'landscape', fitToPage:true, fitToWidth:1, fitToHeight:0, margins:{left:.3,right:.3,top:.4,bottom:.4,header:.2,footer:.2}};
+    ws.pageSetup.printTitlesRow = '7:7';
+
+    /* ورقة ثانية: كبار المسئولين + المجموعة حسب العيادات */
+    const w2 = wb.addWorksheet('كبار المسئولين والعيادات', {views:[{rightToLeft:true}]});
+    [7,24,32,28,30,18,18,18].forEach((w,i)=> w2.getColumn(i+1).width = w);
+    xlPut(w2,1,1,8,'مديرية الشئون الصحية بسوهاج\nمستشفى سوهاج العام',{size:16,color:'#0b3d3a',border:false});
+    w2.getRow(1).height = 56;
+    xlPut(w2,3,1,5,'كبار المسئولين — مقابل حضور جلسة مجلس الإدارة',{size:14,color:'#0b3d3a',border:false,h:'right'});
+    w2.getRow(3).height = 28;
+    ['م','الرقم القومى','الاسم','المنصب','مقابل حضور جلسة مجلس الإدارة'].forEach((t,i)=> xlPut(w2,4,i+1,i+1,t,XL_HEAD));
+    w2.getRow(4).height = 36;
+    pd.officials.forEach((o,i)=>{
+      const r = 5 + i;
+      xlPut(w2,r,1,1,i+1,{});
+      xlPut(w2,r,2,2,String(o.nid||''),{});
+      xlPut(w2,r,3,3,String(o.name||''),{h:'right'});
+      xlPut(w2,r,4,4,String(o.role||''),{fill:'#fff9c4',h:'right'});
+      xlPut(w2,r,5,5,Number(o.amount)||0,{numFmt:XL_NUM});
+      w2.getRow(r).height = 24;
+    });
+    const ot = 5 + pd.officials.length;
+    xlPut(w2,ot,1,4,'الإجمالى',XL_FOOT);
+    xlPut(w2,ot,5,5,pd.officials.reduce((s,o)=>s+(Number(o.amount)||0),0),Object.assign({numFmt:XL_NUM},XL_FOOT));
+    w2.getRow(ot).height = 28;
+
+    const cs = ot + 3;
+    xlPut(w2,cs,1,8,'المجموعة حسب العيادات',{size:14,color:'#0b3d3a',border:false,h:'right'});
+    w2.getRow(cs).height = 28;
+    xlPut(w2,cs+1,1,1,'م',XL_HEAD); xlPut(w2,cs+1,2,2,'القسم',XL_HEAD);
+    PEOPLE_DAYS.forEach(([k,l],i)=> xlPut(w2,cs+1,3+i,3+i,l,XL_HEAD));
+    w2.getRow(cs+1).height = 36;
+    pd.clinicDepts.forEach((cd,i)=>{
+      const r = cs + 2 + i;
+      xlPut(w2,r,1,1,i+1,{});
+      xlPut(w2,r,2,2,String(cd.dept||''),{h:'right'});
+      PEOPLE_DAYS.forEach(([k],j)=> xlPut(w2,r,3+j,3+j,String((cd.days&&cd.days[k])||''),{}));
+      w2.getRow(r).height = 24;
+    });
+    w2.pageSetup = {paperSize:9, orientation:'landscape', fitToPage:true, fitToWidth:1, fitToHeight:0};
+
+    const safeLabel = String(m.label||'').replace(/[\\/:*?"<>|]/g,'-');
+    await xlDownload(wb, `توزيع الأشخاص - ${safeLabel}.xlsx`);
+  }catch(err){
+    console.error(err);
+    alert('تعذّر إنشاء الملف المنسّق، سيتم تصدير نسخة عادية.');
+    exportPeopleToExcelPlain();
+  }
 }
 
 function recalcPeople(){
