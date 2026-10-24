@@ -262,6 +262,30 @@ input[type=number]{-moz-appearance:textfield}
 .xb-tbl .cell-input{min-width:66px}
 .xb-sum td{background:var(--s2);font-weight:900;color:var(--p)}
 .x-note{font-size:.72rem;font-weight:700;color:var(--tm);margin-bottom:12px;line-height:1.7}
+
+/* ===== طباعة صفحة واحدة بخط كبير وواضح: الإيرادات وصافى التوزيع / المنصرف / توريد البنك ===== */
+body.pf-one{background:#fff;color:#000}
+body.pf-one .no-print,body.pf-one .lock-banner{display:none!important}
+body.pf-one .app-shell{display:block}
+body.pf-one .main-content{padding:0}
+body.pf-one .content-header{margin-bottom:4px;gap:4px}
+body.pf-one .crumb{font-size:12pt;color:#000;margin-bottom:0}
+body.pf-one .page-title{font-size:20pt;color:#000}
+body.pf-one .x-note{font-size:13pt;color:#000;margin-bottom:4px;line-height:1.4}
+body.pf-one .sheet-card{box-shadow:none;border:none;border-radius:0;padding:0 2px;margin-bottom:6px}
+body.pf-one .sheet-card-head{margin-bottom:3px}
+body.pf-one .sheet-card h2{font-size:16pt;color:#000;border-right-width:5px;padding-right:8px}
+body.pf-one #sheet-container div{overflow:visible!important}
+body.pf-one #sheet-container table{width:100%!important;min-width:0!important}
+body.pf-one .xb-tbl{min-width:0!important}
+body.pf-one .tbl{font-size:14pt;color:#000;border:1.5px solid #000}
+body.pf-one .tbl th{font-size:13pt;font-weight:900;color:#000;background:#e3e3e3;padding:3px 5px;border:1px solid #000;line-height:1.25}
+body.pf-one .tbl td{font-size:14pt;font-weight:800;color:#000;padding:2px 6px;border:1px solid #000;line-height:1.25}
+body.pf-one .tbl tfoot td,body.pf-one .xb-sum td,body.pf-one .xtype{font-weight:900;color:#000;background:#efefef}
+body.pf-one .x-net td{background:#d9d9d9!important;color:#000!important;font-size:15pt}
+body.pf-one .cell-input,body.pf-one .locked-cell{font-size:14pt;font-weight:800;color:#000!important;padding:0 2px;border:none!important;background:transparent!important;line-height:1.25;min-width:0!important;-webkit-appearance:none;appearance:none}
+body.pf-one .xb-tbl .cell-input{min-width:0!important}
+body.pf-one .x-sign{font-size:14pt;color:#000;margin-top:10px;gap:10px}
 </style>
 </head>
 <body>
@@ -2395,8 +2419,8 @@ const PEOPLE_GROUPS = [
     {k:'sur_cons', label:'استشارى جراح 50%', pool:(c)=>c.surgery.consultant},
     {k:'sur_spec', label:'أخصائى جراح 25%',  pool:(c)=>c.surgery.specialist},
     {k:'sur_asst', label:'مساعد جراح 10%',   pool:(c)=>c.surgery.assistant},
-    {k:'an_cons',  label:'استشارى تخدير',    pool:null},
-    {k:'an_spec',  label:'أخصائى تخدير',     pool:null} ]},
+    {k:'an_cons',  label:'استشارى تخدير 50%', alt:'استشارى تخدير', pool:null},
+    {k:'an_spec',  label:'أخصائى تخدير 25%',  alt:'أخصائى تخدير',  pool:null} ]},
   { title:'الرعاية المركزة', color:'#6a1b9a', cols:[
     {k:'icu_doc',  label:'الأطباء 25%', pool:(c)=>c.icu.doctors} ]},
   { title:'العيادات', color:'#ef6c00', cols:[
@@ -2917,9 +2941,9 @@ function deletePeopleRow(i){
   renderSheet();
 }
 /* عنوان فريد لكل عمود توزيع (اسم المجموعة - اسم العمود) لتفادى التشابه بين المعمل والأشعة */
-function peopleColHeader(c){
+function peopleColHeader(c, lab){
   const g = PEOPLE_GROUPS.find(x=>x.cols.includes(c));
-  return g.title.split('—')[0].trim() + ' - ' + c.label;
+  return g.title.split('—')[0].trim() + ' - ' + (lab || c.label);
 }
 function normHeader(x){
   return String(x==null?'':x).replace(/[أإآ]/g,'ا').replace(/ى/g,'ي').replace(/ة/g,'ه').replace(/\s+/g,' ').trim();
@@ -2958,7 +2982,7 @@ function importPeopleFromFile(file){
         rows[headerIdx].forEach((h,ci)=>{
           const n = normHeader(h);
           if(idFields[n] && colMap[idFields[n]]===undefined){ colMap[idFields[n]] = ci; return; }
-          const hit = PEOPLE_ALL_COLS.find(c=> normHeader(peopleColHeader(c))===n || (plainCount[normHeader(c.label)]===1 && normHeader(c.label)===n));
+          const hit = PEOPLE_ALL_COLS.find(c=> normHeader(peopleColHeader(c))===n || (plainCount[normHeader(c.label)]===1 && normHeader(c.label)===n) || (c.alt && (normHeader(peopleColHeader(c,c.alt))===n || normHeader(c.alt)===n)));
           if(hit && amountMap[hit.k]===undefined) amountMap[hit.k] = ci;
         });
       } else {
@@ -3060,9 +3084,41 @@ document.addEventListener('keydown', function(e){
    (تعمل مع زر الطباعة ومع Ctrl+P) — نقيس أعرض جدول ونصغّر الصفحة بالنسبة اللازمة، والورقة تتحول أفقى لو الجدول عريض
    ============================================================ */
 let __printZoomEl = null;
+const ONE_PAGE_SHEETS = ['xrevenue','xexpense','xbank'];
+function setPageStyle(land, margin){
+  let st = document.getElementById('print-page-style');
+  if(!st){ st = document.createElement('style'); st.id = 'print-page-style'; document.head.appendChild(st); }
+  st.textContent = '@page{size:A4 ' + (land ? 'landscape' : 'portrait') + ';margin:' + margin + 'mm}';
+}
+/* صفحة واحدة: نجرب الطول والعرض ونختار الاتجاه الذى يعطى أكبر حجم للخط */
+function fitOnePage(cont){
+  const PX = 96/25.4, margin = 6;
+  const hdr = document.querySelector('.content-header');
+  const hdrH = (hdr ? hdr.offsetHeight : 0) + 6;
+  function attempt(land){
+    const pw = ((land?297:210) - margin*2) * PX;
+    const ph = ((land?210:297) - margin*2) * PX * 0.97 - hdrH;
+    for(let z=1; z>=0.3; z-=0.02){
+      cont.style.zoom = ''; cont.style.width = (pw/z) + 'px';
+      if(cont.scrollWidth <= cont.clientWidth + 1 && cont.offsetHeight * z <= ph) return {z, land, w:pw/z};
+    }
+    return {z:0.3, land, w:pw/0.3};
+  }
+  const p = attempt(false), l = attempt(true);
+  const best = (l.z > p.z + 0.02) ? l : p;
+  setPageStyle(best.land, margin);
+  cont.style.width = best.w + 'px';
+  cont.style.zoom = String(best.z);
+}
 function applyPrintFit(){
   const cont = document.getElementById('sheet-container'); if(!cont) return;
-  cont.style.zoom = '';
+  cont.style.zoom = ''; cont.style.width = '';
+  __printZoomEl = cont;
+  if(ONE_PAGE_SHEETS.indexOf(currentSheet) >= 0 && getCurrentMonth()){
+    document.body.classList.add('pf-one');
+    fitOnePage(cont);
+    return;
+  }
   let maxW = 0;
   cont.querySelectorAll('table').forEach(t=>{ maxW = Math.max(maxW, t.scrollWidth, t.offsetWidth); });
   const PX_PER_MM = 96/25.4;
@@ -3071,14 +3127,12 @@ function applyPrintFit(){
   const pageW = ((landscape ? 297 : 210) - margin*2) * PX_PER_MM;
   const need = maxW + 24; // هامش بطاقة الشيت
   const z = Math.max(0.2, Math.min(1, pageW / need));
-  let st = document.getElementById('print-page-style');
-  if(!st){ st = document.createElement('style'); st.id = 'print-page-style'; document.head.appendChild(st); }
-  st.textContent = '@page{size:A4 ' + (landscape ? 'landscape' : 'portrait') + ';margin:' + margin + 'mm}';
+  setPageStyle(landscape, margin);
   cont.style.zoom = String(z);
-  __printZoomEl = cont;
 }
 function clearPrintFit(){
-  if(__printZoomEl){ __printZoomEl.style.zoom = ''; __printZoomEl = null; }
+  document.body.classList.remove('pf-one');
+  if(__printZoomEl){ __printZoomEl.style.zoom = ''; __printZoomEl.style.width = ''; __printZoomEl = null; }
   const st = document.getElementById('print-page-style'); if(st) st.textContent = '';
 }
 window.addEventListener('beforeprint', applyPrintFit);
