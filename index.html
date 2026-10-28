@@ -281,6 +281,17 @@ input[type=number]{-moz-appearance:textfield}
 .big-font .btn-sm{font-size:.9rem;padding:9px 15px}
 .big-font .ef-field label{font-size:1rem;font-weight:800}
 
+
+/* ===== إيرادات الخزنة: أعمدة قابلة للتوسيع/التضييق + فلترة زى الإكسل ===== */
+.treasury-tbl{table-layout:fixed;border-collapse:collapse}
+.treasury-tbl th{position:relative;overflow:hidden;white-space:normal;word-break:break-word;vertical-align:middle;text-align:center;padding-left:14px}
+.treasury-tbl td{overflow:hidden}
+.treasury-tbl .cell-input{min-width:0!important;width:100%!important;box-sizing:border-box;text-overflow:clip}
+.treasury-tbl .name-input{text-align:right}
+.col-rs{position:absolute;left:0;top:0;bottom:0;width:9px;cursor:col-resize;user-select:none;touch-action:none;z-index:3}
+.col-rs:hover,.col-rs:active{background:rgba(11,61,58,.28)}
+.tr-sort-mark{font-size:.8em;color:var(--a);margin-right:3px}
+
 /* ===== طباعة صفحة واحدة بخط كبير وواضح: الإيرادات وصافى التوزيع / المنصرف / توريد البنك ===== */
 body.pf-one{background:#fff;color:#000}
 body.pf-one .no-print,body.pf-one .lock-banner{display:none!important}
@@ -591,6 +602,13 @@ function computeDeptDistribution(m){
   const clinicsIncome = Math.max(0, clinicsGross - clinicsBooksExpense); // إجمالى العيادات بعد خصم منصرف الدفاتر
   const clinicsDoctors = clinicsIncome*0.50, clinicsNursing = clinicsIncome*0.25, clinicsHospital = clinicsIncome*0.25;
   const clinicsFee = clinicsDoctors+clinicsNursing; // 75% يُخصم — الـ25% الباقية "لصالح المستشفى" تبقى ضمن الوعاء العام ولا تُخصم
+  // تقسيم العيادات إلى صباحى ومسائى بنفس النسب (50% أطباء / 25% تمريض) — منصرف الدفاتر يُوزَّع بنسبة إيراد كل فترة
+  const cmInc = Number(cm.income)||0, ceInc = Number(ce.income)||0;
+  const booksM = clinicsGross>0 ? clinicsBooksExpense*cmInc/clinicsGross : 0;
+  const booksE = clinicsBooksExpense - booksM;
+  const cmNet = Math.max(0, cmInc - booksM), ceNet = Math.max(0, ceInc - booksE);
+  const clinicsM = { income:cmNet, doctors:cmNet*0.50, nursing:cmNet*0.25 };
+  const clinicsE = { income:ceNet, doctors:ceNet*0.50, nursing:ceNet*0.25 };
 
   const totalDeptFees = labFee+radFee+usFee+surFee+icuFee+clinicsFee;
 
@@ -600,6 +618,7 @@ function computeDeptDistribution(m){
     ultrasound:{ net:usNet, consultant:usConsultant, fee:usFee },
     surgery:{ income:surIncome, consultant:surConsultant, specialist:surSpecialist, assistant:surAssistant, fee:surFee },
     icu:{ net:icuNet, doctors:icuDoctors, fee:icuFee },
+    clinicsM, clinicsE,
     clinics:{ gross:clinicsGross, books:clinicsBooksExpense, income:clinicsIncome, doctors:clinicsDoctors, nursing:clinicsNursing, hospital:clinicsHospital, fee:clinicsFee },
     totalDeptFees
   };
@@ -908,8 +927,8 @@ function deleteMonth(id){
 /* ---------------- إضافة / حذف صفوف عامة (فقط للشهور غير المقفولة) ---------------- */
 function blankRowFor(arrName){
   switch(arrName){
-    case 'xExpEcoExt': case 'xExpEcoInt': case 'xExpInsExt': case 'xExpInsInt': case 'xExpStateInt':
-    case 'xRevEco': case 'xRevIns': case 'xRevState': return ['',0];
+    case 'xExpEcoExt': case 'xExpEcoInt': case 'xExpInsExt': case 'xExpInsInt': case 'xExpStateInt': case 'xExpKidney':
+    case 'xRevEco': case 'xRevIns': case 'xRevState': case 'xRevKidney': return ['',0];
     case 'xBank': return ['','الصباحية','','','','',0,0,0,0,0,0,0,'','',''];
     case 'income': case 'expense': case 'deptExpense': return ['',0];
     case 'distRows': return ['بند توزيع جديد',0];
@@ -1165,6 +1184,8 @@ function ensureXData(m){
   if(!Array.isArray(m.xRevEco)) m.xRevEco = xPairs(X_REV_ECO);
   if(!Array.isArray(m.xRevIns)) m.xRevIns = [1,2,3,4,5].map(()=>['',0]);
   if(!Array.isArray(m.xRevState)) m.xRevState = [1,2,3,4,5].map(()=>['',0]);
+  if(!Array.isArray(m.xRevKidney)) m.xRevKidney = [1,2,3,4,5].map(()=>['',0]);
+  if(!Array.isArray(m.xExpKidney)) m.xExpKidney = [['مستلزمات التحاليل',0]];
   if(!Array.isArray(m.xBank)) m.xBank = [];
 }
 function xSum(arr){ return sumCol(arr||[],1); }
@@ -1172,15 +1193,56 @@ function computeXTotals(m){
   const expEco = xSum(m.xExpEcoExt)+xSum(m.xExpEcoInt);
   const expIns = xSum(m.xExpInsExt)+xSum(m.xExpInsInt);
   const expState = xSum(m.xExpStateInt);
-  const revEco = xSum(m.xRevEco), revIns = xSum(m.xRevIns), revState = xSum(m.xRevState);
-  const revAll = revEco+revIns+revState;
-  const expAll = expEco+expIns+expState;
-  return { expEco, expIns, expState, expAll, revEco, revIns, revState, revAll, net: revAll-expAll, hasData: (revAll!==0 || expAll!==0) };
+  const expKidney = xSum(m.xExpKidney);
+  const revEco = xSum(m.xRevEco), revIns = xSum(m.xRevIns), revState = xSum(m.xRevState), revKidney = xSum(m.xRevKidney);
+  const revAll = revEco+revIns+revState+revKidney;
+  const expAll = expEco+expIns+expState+expKidney;
+  return { expEco, expIns, expState, expKidney, expAll, revEco, revIns, revState, revKidney, revAll, net: revAll-expAll, hasData: (revAll!==0 || expAll!==0) };
 }
 function xBankRowTotal(r){ return X_BANK_NUM.reduce((s,c)=> s + (Number(r[c])||0), 0); }
+/* ---- توريد البنك يُقرأ تلقائيًا من صفحة "إيرادات الخزنة" حسب تاريخ التوريد، ولا يمكن التعديل عليه ---- */
+const AR_MONTH_NAMES = ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
+function normAr(x){
+  return String(x==null?'':x).replace(/[٠-٩]/g,d=>'٠١٢٣٤٥٦٧٨٩'.indexOf(d)).replace(/[أإآ]/g,'ا').replace(/ى/g,'ي').replace(/ة/g,'ه').replace(/[\u064B-\u065F\u0640]/g,'');
+}
+/* اسم الشهر مثل "سبتمبر واكتوبر 2024" أو "يناير 2026" -> قائمة {n:رقم الشهر, y:السنة} */
+function monthLabelToPeriods(label){
+  const t = normAr(label);
+  const defs = [[1,'يناير'],[2,'فبراير'],[3,'مارس'],[4,'ابريل'],[5,'ماي'],[6,'يوني'],[7,'يولي'],[8,'اغسطس'],[9,'سبتمبر'],[10,'اكتوبر'],[11,'نوفمبر'],[12,'ديسمبر']];
+  const found = [];
+  defs.forEach(([n,nm])=>{ let i = t.indexOf(nm); while(i>=0){ found.push({n,pos:i}); i = t.indexOf(nm,i+1); } });
+  const years = []; const re = /\d{4}/g; let mt;
+  while((mt = re.exec(t))) years.push({y:+mt[0],pos:mt.index});
+  const out = [];
+  found.sort((p,q)=>p.pos-q.pos).forEach(f=>{
+    const after = years.find(y=>y.pos>f.pos);
+    const y = after ? after.y : (years.length ? years[years.length-1].y : null);
+    if(!out.some(o=>o.n===f.n && o.y===y)) out.push({n:f.n,y});
+  });
+  return out;
+}
+function parseDateYM(x){
+  const t = normAr(x).trim(); if(!t) return null;
+  let a = t.match(/(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})/); if(a) return {y:+a[1], n:+a[2]};
+  a = t.match(/(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{4})/); if(a) return {y:+a[3], n:+a[2]};
+  return null;
+}
+function xBankRowsFor(m){
+  const periods = monthLabelToPeriods(m && m.label);
+  const rows = []; let noDate = 0;
+  (TREASURY_ROWS||[]).forEach(r=>{
+    const d = parseDateYM(r.bankDate);
+    if(!d){ noDate++; return; }
+    if(!periods.some(p=> p.n===d.n && (p.y===null || p.y===d.y))) return;
+    rows.push([r.m||'', r.period||'', r.from||'', r.to||'', r.group||'', r.receiptNo||'',
+      Number(r.clinics)||0, Number(r.visit)||0, Number(r.econ)||0, Number(r.deficit)||0, Number(r.martyrs)||0, Number(r.companion)||0, Number(r.decisions)||0,
+      r.bankRef||'', r.bankDate||'', r.notes||'']);
+  });
+  return { rows, periods, noDate };
+}
 function xBankSummary(m){
   const ev = Array(X_BANK_NUM.length).fill(0), mo = Array(X_BANK_NUM.length).fill(0);
-  (m.xBank||[]).forEach(r=>{
+  xBankRowsFor(m).rows.forEach(r=>{
     const p = String(r[1]||'');
     const t = p.indexOf('مسائ')>=0 ? ev : (p.indexOf('صباح')>=0 ? mo : null);
     if(!t) return;
@@ -1193,8 +1255,8 @@ function recalcX(){
   const m = getCurrentMonth(); if(!m) return;
   ensureXData(m);
   const t = computeXTotals(m);
-  setText('xe-tot-eco', fmt(t.expEco)); setText('xe-tot-ins', fmt(t.expIns)); setText('xe-tot-state', fmt(t.expState)); setText('xe-tot-all', fmt(t.expAll));
-  setText('xr-tot-eco', fmt(t.revEco)); setText('xr-tot-ins', fmt(t.revIns)); setText('xr-tot-state', fmt(t.revState));
+  setText('xe-tot-eco', fmt(t.expEco)); setText('xe-tot-ins', fmt(t.expIns)); setText('xe-tot-state', fmt(t.expState)); setText('xe-tot-kidney', fmt(t.expKidney)); setText('xe-tot-all', fmt(t.expAll));
+  setText('xr-tot-eco', fmt(t.revEco)); setText('xr-tot-ins', fmt(t.revIns)); setText('xr-tot-state', fmt(t.revState)); setText('xr-tot-kidney', fmt(t.revKidney));
   setText('xr-all', fmt(t.revAll)); setText('xr-exp', fmt(t.expAll)); setText('xr-net', fmt(t.net));
   X_SPLITS.forEach((sp,i)=> setText('xr-split-'+i, fmt(t.net*sp[0]/100)));
   const b = xBankSummary(m);
@@ -1204,7 +1266,6 @@ function recalcX(){
     evT += b.ev[k]; moT += b.mo[k];
   });
   setText('xb-ev-t', fmtNum(evT)); setText('xb-mo-t', fmtNum(moT)); setText('xb-tot-t', fmtNum(evT+moT));
-  (m.xBank||[]).forEach((r,i)=> setText('xb-rt-'+i, fmtNum(xBankRowTotal(r))));
 }
 
 function xSelectCell(m, arr, idx, col, value, options){
@@ -1247,7 +1308,8 @@ function renderXExpenseSheet(m){
     xExpenseBlockHtml(m, 'منصرف الاقتصادى', 'xe-tot-eco', t.expEco, [{type:'خارجى',arr:'xExpEcoExt'},{type:'داخلى',arr:'xExpEcoInt'}]) +
     xExpenseBlockHtml(m, 'منصرف التأمين', 'xe-tot-ins', t.expIns, [{type:'خارجى',arr:'xExpInsExt'},{type:'داخلى',arr:'xExpInsInt'}]) +
     xExpenseBlockHtml(m, 'منصرف نفقة الدولة', 'xe-tot-state', t.expState, [{type:'داخلى',arr:'xExpStateInt'}]) +
-    `<div class="sheet-card"><table class="tbl"><tfoot><tr class="x-net"><td>إجمالى المنصرف (الاقتصادى + التأمين + نفقة الدولة)</td><td class="num" id="xe-tot-all" style="width:190px">${fmt(t.expAll)}</td></tr></tfoot></table>
+    xExpenseBlockHtml(m, 'منصرف تحاليل الكلى (مستلزمات التحاليل)', 'xe-tot-kidney', t.expKidney, [{type:'داخلى',arr:'xExpKidney'}]) +
+    `<div class="sheet-card"><table class="tbl"><tfoot><tr class="x-net"><td>إجمالى المنصرف (الاقتصادى + التأمين + نفقة الدولة + تحاليل الكلى)</td><td class="num" id="xe-tot-all" style="width:190px">${fmt(t.expAll)}</td></tr></tfoot></table>
       <div class="x-sign"><div>المختص</div><div>مدير الشئون المالية</div><div>يعتمد</div></div></div>`;
 }
 
@@ -1277,10 +1339,11 @@ function renderXRevenueSheet(m){
   return xRevenueBlockHtml(m, 'إيرادات الاقتصادى', 'xRevEco', 'القسم', 'xr-tot-eco', t.revEco, true) +
     xRevenueBlockHtml(m, 'إيرادات التأمين', 'xRevIns', 'أمر الدفع', 'xr-tot-ins', t.revIns, false) +
     xRevenueBlockHtml(m, 'إيرادات نفقة الدولة', 'xRevState', 'أمر الدفع', 'xr-tot-state', t.revState, false) +
+    xRevenueBlockHtml(m, 'إيرادات تحاليل الكلى', 'xRevKidney', 'أمر الدفع', 'xr-tot-kidney', t.revKidney, false) +
     `<div class="sheet-card">
       <div class="sheet-card-head"><h2>صافى الإيراد وقابل للتوزيع — ${escapeHtml(m.label)}</h2></div>
       <table class="tbl"><tbody>
-        <tr><td style="text-align:right">إجمالى الإيرادات (الاقتصادى + التأمين + نفقة الدولة)</td><td class="num" id="xr-all" style="width:190px">${fmt(t.revAll)}</td></tr>
+        <tr><td style="text-align:right">إجمالى الإيرادات (الاقتصادى + التأمين + نفقة الدولة + تحاليل الكلى)</td><td class="num" id="xr-all" style="width:190px">${fmt(t.revAll)}</td></tr>
         <tr><td style="text-align:right">إجمالى المنصرف (من صفحة المنصرف)</td><td class="num" id="xr-exp">${fmt(t.expAll)}</td></tr>
         <tr class="x-net"><td style="text-align:right">صافى الإيراد وقابل للتوزيع</td><td class="num" id="xr-net">${fmt(t.net)}</td></tr>
       </tbody></table>
@@ -1292,45 +1355,46 @@ function renderXRevenueSheet(m){
     </div>`;
 }
 
-/* --- صفحة توريد البنك — دفتر 37 (الخزنة وتوريد البنك) --- */
+/* --- صفحة توريد البنك — دفتر 37 (الخزنة وتوريد البنك) — للقراءة فقط، من صفحة إيرادات الخزنة --- */
 function renderXBankSheet(m){
   ensureXData(m);
-  const rows = m.xBank;
+  const info = xBankRowsFor(m);
+  const rows = info.rows;
   const b = xBankSummary(m);
   const sumOf = a => a.reduce((x,y)=>x+y,0);
   const sumRow = (label, arr, idp) => `<tr class="xb-sum"><td colspan="6" style="text-align:center">${label}</td>` +
     arr.map((v,k)=>`<td class="num" id="${idp}-${k}">${fmtNum(v)}</td>`).join('') +
-    `<td class="num" id="${idp}-t">${fmtNum(sumOf(arr))}</td><td colspan="4"></td></tr>`;
+    `<td class="num" id="${idp}-t">${fmtNum(sumOf(arr))}</td><td colspan="3"></td></tr>`;
   const tot = b.ev.map((v,k)=> v + b.mo[k]);
   const numHeads = X_BANK_HEADS.map(h=>`<th>${h}</th>`).join('');
+  const T = (v,al)=> `<td style="text-align:${al||'center'}">${escapeHtml(v)}</td>`;
   const body = rows.map((r,i)=>`<tr>
-      <td>${cell(m,'xBank',i,0,r[0],'text')}</td>
-      <td>${xSelectCell(m,'xBank',i,1,r[1],['الصباحية','المسائية'])}</td>
-      <td>${cell(m,'xBank',i,2,r[2],'text')}</td>
-      <td>${cell(m,'xBank',i,3,r[3],'text')}</td>
-      <td>${cell(m,'xBank',i,4,r[4],'text')}</td>
-      <td>${cell(m,'xBank',i,5,r[5],'text')}</td>
-      ${X_BANK_NUM.map(c=>`<td>${cell(m,'xBank',i,c,r[c],'num')}</td>`).join('')}
+      ${T(r[0])}${T(r[1])}${T(r[2])}${T(r[3])}${T(r[4])}${T(r[5])}
+      ${X_BANK_NUM.map(c=>`<td class="num">${fmtNum(r[c])}</td>`).join('')}
       <td class="num" id="xb-rt-${i}" style="font-weight:900;color:var(--a)">${fmtNum(xBankRowTotal(r))}</td>
-      <td>${cell(m,'xBank',i,13,r[13],'text')}</td>
-      <td>${cell(m,'xBank',i,14,r[14],'text')}</td>
-      <td>${cell(m,'xBank',i,15,r[15],'text')}</td>
-      <td class="no-print">${m.locked?'':`<button class="btn-er" onclick="removeRow('xBank',${i})">✕</button>`}</td>
-    </tr>`).join('') || `<tr><td colspan="18" style="color:var(--tm);font-weight:600">لا توجد إيصالات بعد${m.locked?'':' — اضغط "➕ إضافة إيصال"'}</td></tr>`;
-  const add = m.locked ? '' : `<div class="head-btns no-print"><button class="btn btn-p btn-sm" onclick="addRow('xBank')">➕ إضافة إيصال</button></div>`;
+      ${T(r[13])}${T(r[14])}${T(r[15],'right')}
+    </tr>`).join('');
+  const names = info.periods.map(p=> AR_MONTH_NAMES[p.n-1] + (p.y?(' '+p.y):'')).join(' و ');
+  let noteHtml;
+  if(!info.periods.length){
+    noteHtml = `<b style="color:var(--er)">⚠ تعذّر تحديد الشهر من اسم هذا الشهر («${escapeHtml(m.label)}»).</b> سمِّ الشهر بصيغة مثل «يناير 2026» أو «مارس وابريل 2026» حتى تُعرض إيصالاته هنا.`;
+  } else {
+    noteHtml = `هذه الصفحة <b>للقراءة فقط</b>: تعرض تلقائيًا إيصالات صفحة «إيرادات الخزنة» التى يقع <b>تاريخ توريدها</b> فى: <b>${escapeHtml(names)}</b> (${rows.length} إيصال). لتعديل أى رقم أو إضافة إيصال استخدم صفحة «إيرادات الخزنة». صفوف المسائى والصباحى والإجمالى بالأعلى تُحسب تلقائيًا حسب عمود «الفترة».` +
+      (info.noDate ? ` <span style="color:var(--er)">(${info.noDate} إيصال فى إيرادات الخزنة بدون تاريخ توريد لذلك لا يظهر هنا)</span>` : '');
+  }
   return `<div class="sheet-card">
-    <div class="sheet-card-head"><h2>الخزنة وتوريد البنك — الخزنة الرئيسية إيصال 37</h2>${add}</div>
-    <div class="x-note">صفوف المسائى والصباحى والإجمالى بالأعلى تُحسب تلقائيًا من الإيصالات المُدخلة بالأسفل حسب عمود "الفترة".</div>
+    <div class="sheet-card-head"><h2>الخزنة وتوريد البنك — الخزنة الرئيسية إيصال 37</h2></div>
+    <div class="x-note">${noteHtml}</div>
     <div style="overflow-x:auto">
     <table class="tbl xb-tbl">
       <thead>
         ${sumRow('مسائى', b.ev, 'xb-ev')}
         ${sumRow('صباحى', b.mo, 'xb-mo')}
         ${sumRow('الإجمالى', tot, 'xb-tot')}
-        <tr><th rowspan="2">م</th><th rowspan="2">الفترة</th><th colspan="2">التاريخ</th><th colspan="10">إيصالات التحصيل</th><th colspan="2">توريد البنك</th><th rowspan="2">ملاحظات</th><th rowspan="2" class="no-print"></th></tr>
+        <tr><th rowspan="2">م</th><th rowspan="2">الفترة</th><th colspan="2">التاريخ</th><th colspan="10">إيصالات التحصيل</th><th colspan="2">توريد البنك</th><th rowspan="2">ملاحظات</th></tr>
         <tr><th>من</th><th>إلى</th><th>مجموعة</th><th>رقم الإيصال 37 ع.ح</th>${numHeads}<th>الإجمالى</th><th>رقم</th><th>تاريخ التوريد</th></tr>
       </thead>
-      <tbody>${body}</tbody>
+      <tbody>${body || `<tr><td colspan="17" style="color:var(--tm);font-weight:600">لا توجد إيصالات تاريخ توريدها فى هذا الشهر</td></tr>`}</tbody>
     </table>
     </div>
   </div>`;
@@ -1660,6 +1724,7 @@ function closeColumnFilterOverlay(){
   if(ov) ov.style.display = 'none';
   openFilterMenu = null;
   openPeopleFilterKey = null;
+  openTreasuryFilterKey = null;
 }
 
 function toggleColumnFilterMenu(session, colIdx, evt){
@@ -2252,19 +2317,58 @@ function treasuryRowTotal(r){
   return TREASURY_SUM_KEYS.reduce((s,k)=> s + (Number(r[k])||0), 0);
 }
 
+/* ---------- حالة الفلاتر والترتيب وعرض الأعمدة (إيرادات الخزنة) ---------- */
+let treasuryFilters = {};      // {مفتاح العمود: Set(قيم مسموحة)}
+let treasurySort = null;       // {key, dir:'asc'|'desc'}
+let openTreasuryFilterKey = null;
+const TREASURY_COLW_KEY = 'sohag_treasury_colw_v1';
+const TREASURY_DEFAULT_W = { m:70, period:140, from:150, to:150, group:120, receiptNo:150, clinics:130, visit:130, econ:140, deficit:130, martyrs:130, companion:130, decisions:130, bankRef:130, bankDate:150, notes:240, __total:150 };
+let TREASURY_COLW = {};
+try{ TREASURY_COLW = JSON.parse(localStorage.getItem(TREASURY_COLW_KEY)||'{}') || {}; }catch(e){ TREASURY_COLW = {}; }
+function treasuryW(key){ return Math.max(50, Number(TREASURY_COLW[key]) || TREASURY_DEFAULT_W[key] || 130); }
+function treasuryKeys(){ return TREASURY_COLS.map(c=>c.key).concat('__total'); }
+function treasuryTotalW(){ return treasuryKeys().reduce((s,k)=>s+treasuryW(k),0) + 46; }
+
+function treasuryCellDisplay(r, key){
+  if(key==='__total'){ const t = treasuryRowTotal(r); return fmtNum(t); }
+  const col = TREASURY_COLS.find(c=>c.key===key);
+  const v = r[key];
+  if(col && col.type==='num') return fmtNum(Number(v)||0);
+  return String(v==null?'':v).trim();
+}
+function treasuryVisibleIdx(){
+  const act = Object.keys(treasuryFilters).filter(k=>treasuryFilters[k] instanceof Set);
+  const idx = TREASURY_ROWS.map((r,i)=>i).filter(i=> act.every(k=> treasuryFilters[k].has(treasuryCellDisplay(TREASURY_ROWS[i],k) || '(فارغ)')));
+  if(treasurySort){
+    const k = treasurySort.key, col = TREASURY_COLS.find(c=>c.key===k), dir = treasurySort.dir==='desc' ? -1 : 1;
+    const val = i=>{ const r = TREASURY_ROWS[i]; if(k==='__total') return treasuryRowTotal(r); if(col && col.type==='num') return Number(r[k])||0; return String(r[k]==null?'':r[k]); };
+    idx.sort((x,y)=>{ const a = val(x), b = val(y); const c = (typeof a==='number') ? (a-b) : a.localeCompare(b,'ar',{numeric:true}); return (c*dir) || (x-y); });
+  }
+  return idx;
+}
+
 function renderTreasurySheet(){
   const rows = TREASURY_ROWS;
-  const grandTotal = rows.reduce((s,r)=> s + treasuryRowTotal(r), 0);
+  const vis = treasuryVisibleIdx();
+  const act = Object.keys(treasuryFilters).filter(k=>treasuryFilters[k] instanceof Set);
+  const grandTotal = vis.reduce((s,i)=> s + treasuryRowTotal(rows[i]), 0);
   const sums = {};
-  TREASURY_SUM_KEYS.forEach(k=> sums[k] = rows.reduce((s,r)=> s + (Number(r[k])||0), 0));
+  TREASURY_SUM_KEYS.forEach(k=> sums[k] = vis.reduce((s,i)=> s + (Number(rows[i][k])||0), 0));
 
-  const headHtml = TREASURY_COLS.map(c=>`<th${c.width?` style="min-width:${c.width}"`:''}>${escapeHtml(c.label)}</th>`).join('') + '<th>الإجمالى</th><th class="no-print" style="width:34px"></th>';
+  const th = (key,label)=>{
+    const on = treasuryFilters[key] instanceof Set;
+    const mark = (treasurySort && treasurySort.key===key) ? `<span class="tr-sort-mark">${treasurySort.dir==='desc'?'▼':'▲'}</span>` : '';
+    return `<th title="${escapeHtml(label)}"><span>${escapeHtml(label)}</span>${mark}<span class="col-filter-ic no-print ${on?'active':''}" onclick="toggleTreasuryFilterMenu('${key}',event)" title="فلتر / ترتيب">▾</span><span class="col-rs no-print" onpointerdown="treasuryResizeStart(event,'${key}')" ondblclick="treasuryResetW('${key}')" title="اسحب لتغيير عرض العمود — نقرتان لإعادته"></span></th>`;
+  };
+  const colgroup = `<colgroup>${treasuryKeys().map(k=>`<col data-k="${k}" style="width:${treasuryW(k)}px">`).join('')}<col class="no-print" style="width:46px"></colgroup>`;
+  const headHtml = TREASURY_COLS.map(c=>th(c.key,c.label)).join('') + th('__total','الإجمالى') + '<th class="no-print"></th>';
 
-  const bodyHtml = rows.map((r,i)=>{
+  const bodyHtml = vis.map(i=>{
+    const r = rows[i];
     const cells = TREASURY_COLS.map(c=>{
       const v = r[c.key]===undefined||r[c.key]===null ? '' : r[c.key];
       if(c.type==='text'){
-        return `<td><input class="cell-input name-input" style="border:1px solid var(--b)" value="${escapeHtml(v)}" onchange="updateTreasuryCell(${i},'${c.key}',this.value)"></td>`;
+        return `<td><input class="cell-input name-input" style="border:1px solid var(--b)" title="${escapeHtml(v)}" value="${escapeHtml(v)}" onchange="updateTreasuryCell(${i},'${c.key}',this.value)"></td>`;
       }
       if(c.type==='date'){
         return `<td><input type="text" class="cell-input" style="border:1px solid var(--b);text-align:center" placeholder="YYYY-MM-DD" value="${escapeHtml(v)}" onchange="updateTreasuryCell(${i},'${c.key}',this.value)"></td>`;
@@ -2273,13 +2377,19 @@ function renderTreasurySheet(){
     }).join('');
     const total = treasuryRowTotal(r);
     return `<tr>${cells}<td class="num" style="font-weight:900;color:var(--a)">${total?fmtNum(total):'0'}</td><td class="no-print"><button class="btn-er" onclick="deleteTreasuryRow(${i})">✕</button></td></tr>`;
-  }).join('') || `<tr><td colspan="${TREASURY_COLS.length+2}" style="color:var(--tm);font-weight:600">لا توجد بيانات بعد</td></tr>`;
+  }).join('') || `<tr><td colspan="${TREASURY_COLS.length+2}" style="color:var(--tm);font-weight:600">${act.length ? 'لا توجد صفوف مطابقة للفلتر الحالى' : 'لا توجد بيانات بعد'}</td></tr>`;
 
-  const totalsRow = TREASURY_COLS.map(c=>{
-    if(c.key==='m') return `<td>الإجمالى (${rows.length} إيصال)</td>`;
+  const firstSum = TREASURY_COLS.findIndex(c=>TREASURY_SUM_KEYS.includes(c.key));
+  const totalsRow = `<td colspan="${firstSum}">الإجمالى (${act.length ? vis.length+' من '+rows.length : rows.length} إيصال)</td>` + TREASURY_COLS.map((c,i)=>{
+    if(i<firstSum) return '';
     if(TREASURY_SUM_KEYS.includes(c.key)) return `<td class="num" style="font-weight:900">${fmtNum(sums[c.key])}</td>`;
-    return `<td>—</td>`;
+    return `<td></td>`;
   }).join('') + `<td class="num" style="font-weight:900;color:var(--a)">${fmtNum(grandTotal)}</td><td class="no-print"></td>`;
+
+  const filterBar = (act.length || treasurySort) ? `<div class="load-more-bar no-print" style="background:#fbeedd;border-color:#eccf9c;margin-bottom:8px">
+      <span>⚠ ${act.length ? `يوجد فلتر مُفعّل — يظهر ${vis.length} من ${rows.length} إيصال (الإجماليات بالأسفل للصفوف المعروضة فقط)` : 'الصفوف مرتّبة حسب عمود محدد'}</span>
+      <button class="btn btn-o btn-sm" onclick="clearAllTreasuryFilters()">✕ مسح الفلاتر والترتيب</button>
+    </div>` : '';
 
   return `
   <div class="big-font">
@@ -2292,10 +2402,12 @@ function renderTreasurySheet(){
       </div>
     </div>
     <div style="font-size:.72rem;font-weight:700;color:var(--tm);margin-bottom:14px;line-height:1.7">
-      هذه الصفحة ثابتة ومستقلة عن قائمة الشهور — بنفس أعمدة شيت "يناير توريد خزنة رئيسية" فى ملف الإكسل الأصلى، وتُحمَّل ببياناته كنقطة بداية ويمكن التعديل عليها أو إضافة صفوف جديدة بحرية من هنا.
+      هذه الصفحة ثابتة ومستقلة عن قائمة الشهور — بنفس أعمدة شيت "يناير توريد خزنة رئيسية" فى ملف الإكسل الأصلى. لتغيير عرض أى عمود اسحب الحافة اليسرى لعنوانه (نقرتان تعيدانه للعرض الأصلى)، وللفلترة والترتيب اضغط السهم ▾ فى عنوان العمود. صفحة «توريد البنك» تقرأ من هنا حسب <b>تاريخ التوريد</b>.
     </div>
+    ${filterBar}
     <div style="overflow-x:auto">
-    <table class="tbl">
+    <table class="tbl bordered-tbl treasury-tbl" style="width:${treasuryTotalW()}px">
+      ${colgroup}
       <thead><tr>${headHtml}</tr></thead>
       <tbody>${bodyHtml}</tbody>
       <tfoot><tr>${totalsRow}</tr></tfoot>
@@ -2305,6 +2417,80 @@ function renderTreasurySheet(){
   </div>`;
 }
 
+/* --- تغيير عرض الأعمدة بالسحب --- */
+let tcRs = null;
+function treasuryResizeStart(ev, key){
+  ev.preventDefault(); ev.stopPropagation();
+  const thEl = ev.currentTarget.parentElement;
+  tcRs = { key, x: ev.clientX, w: thEl.getBoundingClientRect().width, rtl: getComputedStyle(thEl).direction==='rtl' };
+  document.body.style.cursor = 'col-resize';
+  document.addEventListener('pointermove', treasuryResizeMove);
+  document.addEventListener('pointerup', treasuryResizeEnd, {once:true});
+}
+function treasuryApplyW(){
+  const tbl = document.querySelector('.treasury-tbl'); if(!tbl) return;
+  treasuryKeys().forEach(k=>{ const c = tbl.querySelector('col[data-k="'+k+'"]'); if(c) c.style.width = treasuryW(k)+'px'; });
+  tbl.style.width = treasuryTotalW()+'px';
+}
+function treasuryResizeMove(e){
+  if(!tcRs) return;
+  const d = tcRs.rtl ? (tcRs.x - e.clientX) : (e.clientX - tcRs.x);
+  TREASURY_COLW[tcRs.key] = Math.max(50, Math.round(tcRs.w + d));
+  treasuryApplyW();
+}
+function treasuryResizeEnd(){
+  document.removeEventListener('pointermove', treasuryResizeMove);
+  document.body.style.cursor = '';
+  try{ localStorage.setItem(TREASURY_COLW_KEY, JSON.stringify(TREASURY_COLW)); }catch(e){}
+  tcRs = null;
+}
+function treasuryResetW(key){
+  delete TREASURY_COLW[key];
+  try{ localStorage.setItem(TREASURY_COLW_KEY, JSON.stringify(TREASURY_COLW)); }catch(e){}
+  treasuryApplyW();
+}
+
+/* --- فلترة وترتيب زى الإكسل --- */
+function treasuryFilterValues(key){
+  const set = new Set();
+  TREASURY_ROWS.forEach(r=> set.add(treasuryCellDisplay(r,key) || '(فارغ)'));
+  return Array.from(set).sort((a,b)=> a.localeCompare(b,'ar',{numeric:true}));
+}
+function toggleTreasuryFilterMenu(k, evt){
+  if(evt) evt.stopPropagation();
+  if(openTreasuryFilterKey===k){ closeColumnFilterOverlay(); return; }
+  closeColumnFilterOverlay();
+  openTreasuryFilterKey = k;
+  const ov = document.getElementById('colf-overlay'); if(!ov) return;
+  const values = treasuryFilterValues(k);
+  const active = treasuryFilters[k] instanceof Set ? treasuryFilters[k] : null;
+  const rowsHtml = values.map(v=>`<label style="display:flex;align-items:center;gap:6px;padding:3px 4px;font-size:.8rem;font-weight:700;cursor:pointer"><input type="checkbox" class="colf-chk" value="${escapeHtml(v)}" ${(active?active.has(v):true)?'checked':''}> ${escapeHtml(v)}</label>`).join('') || '<div style="font-size:.75rem;color:var(--tm);padding:4px">لا توجد قيم</div>';
+  ov.innerHTML = `
+    <div class="colf-actions"><button type="button" onclick="setTreasurySort('${k}','asc')">▲ ترتيب تصاعدى</button><button type="button" onclick="setTreasurySort('${k}','desc')">▼ ترتيب تنازلى</button></div>
+    <input type="search" placeholder="بحث..." oninput="peopleFilterSearch(this.value)" style="width:100%;box-sizing:border-box;border:1px solid var(--b);border-radius:6px;padding:5px 7px;font-family:inherit;font-size:.8rem;margin:6px 0">
+    <div class="colf-actions"><button type="button" onclick="colfSelectAll(true)">تحديد الكل</button><button type="button" onclick="colfSelectAll(false)">إلغاء الكل</button></div>
+    <div class="colf-values">${rowsHtml}</div>
+    <div class="colf-actions" style="border-top:1px solid var(--b);padding-top:6px"><button type="button" class="colf-apply" onclick="applyTreasuryFilter('${k}')">✔ تطبيق</button><button type="button" onclick="clearTreasuryFilter('${k}')">مسح الفلتر</button></div>`;
+  ov.style.display = 'block';
+  const icon = evt && evt.currentTarget;
+  if(icon){
+    const rect = icon.getBoundingClientRect(); const width = 210;
+    let left = rect.left - width + rect.width;
+    left = Math.max(8, Math.min(left, window.innerWidth - width - 8));
+    ov.style.left = left + 'px'; ov.style.top = (rect.bottom + 6) + 'px';
+  }
+}
+function applyTreasuryFilter(k){
+  const ov = document.getElementById('colf-overlay'); if(!ov) return;
+  const all = Array.from(ov.querySelectorAll('.colf-chk'));
+  const checked = all.filter(c=>c.checked).map(c=>c.value);
+  if(checked.length===all.length) delete treasuryFilters[k]; else treasuryFilters[k] = new Set(checked);
+  closeColumnFilterOverlay(); renderSheet();
+}
+function clearTreasuryFilter(k){ delete treasuryFilters[k]; closeColumnFilterOverlay(); renderSheet(); }
+function setTreasurySort(k, dir){ treasurySort = {key:k, dir}; closeColumnFilterOverlay(); renderSheet(); }
+function clearAllTreasuryFilters(){ treasuryFilters = {}; treasurySort = null; closeColumnFilterOverlay(); renderSheet(); }
+
 function updateTreasuryCell(idx, key, value){
   if(!TREASURY_ROWS[idx]) return;
   const col = TREASURY_COLS.find(c=>c.key===key);
@@ -2313,6 +2499,7 @@ function updateTreasuryCell(idx, key, value){
   renderSheet(); // لإعادة حساب الإجمالى الخاص بالصف وصف الإجماليات أسفل الجدول
 }
 function addTreasuryRow(){
+  treasuryFilters = {}; treasurySort = null;
   const blank = {};
   TREASURY_COLS.forEach(c=> blank[c.key] = c.type==='num' ? 0 : '');
   TREASURY_ROWS.push(blank);
@@ -2442,10 +2629,19 @@ const PEOPLE_GROUPS = [
     {k:'an_cons',  label:'استشارى تخدير 50%', alt:'استشارى تخدير', pool:null},
     {k:'an_spec',  label:'أخصائى تخدير 25%',  alt:'أخصائى تخدير',  pool:null} ]},
   { title:'الرعاية المركزة', color:'#6a1b9a', cols:[
-    {k:'icu_doc',  label:'الأطباء 25%', pool:(c)=>c.icu.doctors} ]},
-  { title:'العيادات', color:'#ef6c00', cols:[
-    {k:'cl_doc',   label:'50% أطباء',  pool:(c)=>c.clinics.doctors},
-    {k:'cl_nurse', label:'25% تمريض',  pool:(c)=>c.clinics.nursing} ]},
+    {k:'icu_neuro', label:'عناية مخ واعصاب',     pool:null},
+    {k:'icu_med',   label:'عناية مركزة باطنة',   pool:null},
+    {k:'icu_heart', label:'عناية قلب',           pool:null},
+    {k:'icu_icu',   label:'عناية مركزة ICU',     pool:null},
+    {k:'icu_burn',  label:'عناية حروق',          pool:null},
+    {k:'icu_peds',  label:'عناية مركزة أطفال',   pool:null},
+    {k:'icu_hup',   label:'عناية Hup',           pool:null} ]},
+  { title:'عيادات صباحى', color:'#ef6c00', cols:[
+    {k:'cl_m_doc',   label:'50% أطباء',  pool:(c)=>c.clinicsM.doctors},
+    {k:'cl_m_nurse', label:'25% تمريض',  pool:(c)=>c.clinicsM.nursing} ]},
+  { title:'عيادات مسائى', color:'#d84315', cols:[
+    {k:'cl_e_doc',   label:'50% أطباء',  pool:(c)=>c.clinicsE.doctors},
+    {k:'cl_e_nurse', label:'25% تمريض',  pool:(c)=>c.clinicsE.nursing} ]},
   { title:'5% توزيعة أدوية نفقة الدولة', color:'#00897b', cols:[
     {k:'x_drug',   label:'5% توزيعة أدوية نفقة الدولة', pool:null} ]},
   { title:'توزيعة الكلى', color:'#8e24aa', cols:[
@@ -2465,6 +2661,7 @@ const PEOPLE_GROUPS = [
     {k:'g_bonus', label:'مكافآت جهود غير عادية 2%',  pool:(c,r)=>r*0.02} ]}
 ];
 const PEOPLE_ALL_COLS = PEOPLE_GROUPS.reduce((a,g)=>a.concat(g.cols),[]);
+const PEOPLE_GENERAL_KEYS = PEOPLE_GROUPS[PEOPLE_GROUPS.length-1].cols.map(c=>c.k); // أعمدة "المتبقى — الوعاء العام"
 
 function ensurePeopleDist(m){
   if(!m.peopleDist || typeof m.peopleDist!=='object') m.peopleDist = {};
@@ -2480,6 +2677,24 @@ function ensurePeopleDist(m){
   if(!Array.isArray(pd.rows)) pd.rows = [];
   if(!pd.pool || typeof pd.pool!=='object') pd.pool = {};
   if(!pd.groupPool || typeof pd.groupPool!=='object') pd.groupPool = {};
+  if(!pd.clinicsSplit){ // ترحيل مرة واحدة: الأعمدة القديمة "العيادات" تنتقل إلى "عيادات صباحى"
+    pd.clinicsSplit = true;
+    const mv = (o, from, to)=>{ if(o && o[from]!==undefined){ if(o[to]===undefined) o[to] = o[from]; delete o[from]; return true; } return false; };
+    let moved = false;
+    pd.rows.forEach(r=>{ if(r.v){ if(mv(r.v,'cl_doc','cl_m_doc')) moved = true; if(mv(r.v,'cl_nurse','cl_m_nurse')) moved = true; } });
+    if(mv(pd.pool,'cl_doc','cl_m_doc')) moved = true;
+    if(mv(pd.pool,'cl_nurse','cl_m_nurse')) moved = true;
+    if(mv(pd.groupPool,'cl_doc','cl_m_doc')) moved = true;
+    if(moved) pd.clinicsMigrated = true;
+  }
+  if(!pd.icuSplit){ // ترحيل مرة واحدة: العمود القديم "الأطباء 25%" للرعاية المركزة -> "عناية مركزة ICU" (والوعاء الكلى للمجموعة -> أول عناية)
+    pd.icuSplit = true;
+    let moved = false;
+    pd.rows.forEach(r=>{ if(r.v && r.v.icu_doc!==undefined){ if(r.v.icu_icu===undefined) r.v.icu_icu = r.v.icu_doc; delete r.v.icu_doc; moved = true; } });
+    if(pd.pool && pd.pool.icu_doc!==undefined){ if(pd.pool.icu_icu===undefined) pd.pool.icu_icu = pd.pool.icu_doc; delete pd.pool.icu_doc; moved = true; }
+    if(pd.groupPool && pd.groupPool.icu_doc!==undefined){ if(pd.groupPool.icu_neuro===undefined) pd.groupPool.icu_neuro = pd.groupPool.icu_doc; delete pd.groupPool.icu_doc; moved = true; }
+    if(moved) pd.icuMigrated = true;
+  }
   return pd;
 }
 
@@ -2581,7 +2796,9 @@ function renderPeopleSheet(m){
       <td class="no-print">${locked?'':`<button class="btn-er" onclick="deletePeopleRow(${i})">✕</button>`}</td>
     </tr>`; }).join('') || `<tr><td colspan="${5+PEOPLE_ALL_COLS.length+2}" style="color:var(--tm);font-weight:600">${pfActive.length ? 'لا توجد صفوف مطابقة للفلتر الحالى' : ('لا توجد بيانات بعد'+(locked?'':' — اضغط "➕ إضافة شخص"'))}</td></tr>`;
   const dupBar = dupTotal ? `<div class="load-more-bar no-print" style="background:#fdecea;border-color:#f1c7c1;margin-bottom:8px"><span>⚠ يوجد ${dupTotal} رقم قومى مكرر فى هذا الشهر (الصفوف المظللة بالأحمر) — صحّح أو احذف الصف المكرر</span></div>` : '';
-  const pfBar = dupBar + (pfActive.length ? `<div class="load-more-bar no-print" style="background:#fbeedd;border-color:#eccf9c;margin-bottom:8px">
+  const migBar = pd.clinicsMigrated ? `<div class="load-more-bar no-print" style="background:#fdecea;border-color:#f1c7c1;margin-bottom:8px"><span>⚠ تم تقسيم العيادات إلى «صباحى» و«مسائى»، ونُقلت المبالغ التى كانت مُدخلة فى عمودى «العيادات» القديمين إلى «عيادات صباحى». راجعها وانقل ما يخص المسائى يدويًا.</span><button class="btn btn-o btn-sm" onclick="dismissClinicsMigrated()">تمت المراجعة</button></div>` : '';
+  const icuBar = pd.icuMigrated ? `<div class="load-more-bar no-print" style="background:#fdecea;border-color:#f1c7c1;margin-bottom:8px"><span>⚠ عمود «الرعاية المركزة» أصبح بأسماء العنايات، ونُقلت المبالغ التى كانت مُدخلة فى العمود القديم إلى «عناية مركزة ICU». راجعها ووزّعها على العنايات الصحيحة يدويًا.</span><button class="btn btn-o btn-sm" onclick="dismissIcuMigrated()">تمت المراجعة</button></div>` : '';
+  const pfBar = migBar + icuBar + dupBar + (pfActive.length ? `<div class="load-more-bar no-print" style="background:#fbeedd;border-color:#eccf9c;margin-bottom:8px">
       <span>⚠ يوجد فلتر مُفعّل — يظهر ${visibleIdx.length} من ${pd.rows.length} شخص (صفوف الوعاء والموزَّع والمتبقى محسوبة على كل الأشخاص)</span>
       <button class="btn btn-o btn-sm" onclick="clearAllPeopleFilters()">✕ مسح كل الفلاتر</button>
     </div>` : '');
@@ -2663,8 +2880,8 @@ function renderPeopleSheet(m){
     </div>
     <div style="font-size:.72rem;font-weight:700;color:var(--tm);margin-bottom:12px;line-height:1.7">
       اكتب "الوعاء المتاح" لكل مجموعة (المعمل، الأشعة، ...) فى الخانة اللى فوق اسمها، ولكل عمود فى الصفوف اللى تحتها، بنفسك (لو وقفت بالماوس على الخانة هتشوف المبلغ المقترح من صفحة "الإيرادات"). بعدها اكتب نصيب كل شخص فى العمود المناسب، وصف "المتبقى" بيوضح الفرق بين الوعاء وما تم توزيعه (لو ظهر بالأحمر يبقى الموزَّع أكبر من الوعاء).
-      <br>الوعاء العام المتاح للتوزيع على العاملين: <b class="num" style="color:var(--a)">${fmtNum(generalRemainder)}</b>
     </div>
+    <div id="pd-gen-bar" style="font-size:1.02rem;font-weight:800;line-height:1.9;background:#fff8e1;border:1px solid #eccf9c;border-radius:9px;padding:9px 14px;margin-bottom:12px">${peopleGenBarHtml(m,pd)}</div>
     ${pfBar}
     <div style="overflow-x:auto">
     <table class="tbl wide-log-tbl people-dist-tbl bordered-tbl">
@@ -2720,19 +2937,41 @@ function recalcPeopleDist(){
   setText('pd-rem-total', fmtNum(poolTotal - grand));
   setText('pd-count-lbl', 'الموزَّع فعلًا ('+pd.rows.length+' شخص)');
   setText('pd-off-total', fmtNum(pd.officials.reduce((s,o)=>s+(Number(o.amount)||0),0)));
+  const gb = document.getElementById('pd-gen-bar'); if(gb) gb.innerHTML = peopleGenBarHtml(m, pd);
 }
 function updatePeopleGroupPool(k, value){
   const m = getCurrentMonth(); if(!m || m.locked) return;
   const pd = ensurePeopleDist(m);
+  const prev = pd.groupPool[k];
+  const before = peopleGeneralCheck(m, pd);
   const v = String(value).trim();
   if(v==='') delete pd.groupPool[k]; else pd.groupPool[k] = parseFloat(v)||0;
+  const after = peopleGeneralCheck(m, pd);
+  if(peopleWorsened(before, after)){
+    if(prev===undefined) delete pd.groupPool[k]; else pd.groupPool[k] = prev;
+    peopleRevertInput(prev);
+    alert(peopleRejectMsg(after));
+    recalcPeopleDist();
+    return;
+  }
   scheduleAutoSave();
+  recalcPeopleDist();
 }
 function updatePeoplePool(k, value){
   const m = getCurrentMonth(); if(!m || m.locked) return;
   const pd = ensurePeopleDist(m);
+  const prev = pd.pool[k];
+  const before = peopleGeneralCheck(m, pd);
   const v = String(value).trim();
   if(v==='') delete pd.pool[k]; else pd.pool[k] = parseFloat(v)||0;
+  const after = peopleGeneralCheck(m, pd);
+  if(peopleWorsened(before, after)){
+    if(prev===undefined) delete pd.pool[k]; else pd.pool[k] = prev;
+    peopleRevertInput(prev);
+    alert(peopleRejectMsg(after));
+    recalcPeopleDist();
+    return;
+  }
   scheduleAutoSave();
   recalcPeopleDist();
 }
@@ -2925,6 +3164,16 @@ function clearPeopleFilter(k){
   closeColumnFilterOverlay(); openPeopleFilterKey = null;
   renderSheet();
 }
+function dismissIcuMigrated(){
+  const m = getCurrentMonth(); if(!m) return;
+  const pd = ensurePeopleDist(m); pd.icuMigrated = false;
+  scheduleAutoSave(); renderSheet();
+}
+function dismissClinicsMigrated(){
+  const m = getCurrentMonth(); if(!m) return;
+  const pd = ensurePeopleDist(m); pd.clinicsMigrated = false;
+  scheduleAutoSave(); renderSheet();
+}
 function clearAllPeopleFilters(){
   peopleFilters = {};
   closeColumnFilterOverlay(); openPeopleFilterKey = null;
@@ -2936,13 +3185,63 @@ function updatePeopleText(i, field, value){
   if(pd.rows[i]) pd.rows[i][field] = value;
   scheduleAutoSave();
 }
+
+/* ---------- الوعاء العام المتاح للتوزيع: لا يجوز أن يزيد عنه الموزَّع ولا القابل للتوزيع ---------- */
+function peopleGeneralCheck(m, pd){
+  const cap = Math.max(0, computeGeneralRemainder(m).generalRemainder);
+  let dist = 0, pools = 0;
+  PEOPLE_GENERAL_KEYS.forEach(k=>{
+    dist += pd.rows.reduce((s,r)=> s + (Number(r.v&&r.v[k])||0), 0);
+    pools += peoplePoolVal(pd,k) || 0;
+  });
+  const gp = pd.groupPool && pd.groupPool[PEOPLE_GENERAL_KEYS[0]];
+  const groupPool = (gp===undefined || gp===null || gp==='') ? 0 : (Number(gp)||0);
+  const E = 0.005, problems = [];
+  if(dist > cap+E) problems.push('إجمالى المبالغ الموزَّعة ('+fmtNum(dist)+') أكبر من الوعاء العام المتاح للتوزيع ('+fmtNum(cap)+')');
+  if(pools > cap+E) problems.push('إجمالى المبالغ القابلة للتوزيع فى أعمدة الوعاء العام ('+fmtNum(pools)+') أكبر من الوعاء العام المتاح للتوزيع ('+fmtNum(cap)+')');
+  if(groupPool > cap+E) problems.push('الوعاء المتاح للمجموعة ('+fmtNum(groupPool)+') أكبر من الوعاء العام المتاح للتوزيع ('+fmtNum(cap)+')');
+  return { cap, dist, pools, groupPool, problems };
+}
+/* نرفض فقط ما يزيد الوضع سوءًا (حتى يمكن تخفيض أرقام قديمة زائدة بعد تغيّر الإيرادات) */
+function peopleWorsened(b, a){
+  const E = 0.005;
+  return (a.dist>a.cap+E && a.dist>b.dist+E) || (a.pools>a.cap+E && a.pools>b.pools+E) || (a.groupPool>a.cap+E && a.groupPool>b.groupPool+E);
+}
+function peopleRejectMsg(a){
+  return '❌ لم يُحفظ هذا الرقم — لا يجوز أن يزيد الموزَّع أو القابل للتوزيع عن الوعاء العام المتاح للتوزيع.\n\n' + a.problems.join('\n') + '\n\nالوعاء العام المتاح للتوزيع: ' + fmtNum(a.cap);
+}
+function peopleRevertInput(prev){
+  const el = window.event && window.event.target;
+  if(el && 'value' in el) el.value = (prev===undefined || prev===null) ? '' : prev;
+}
+function peopleGenBarHtml(m, pd){
+  const c = peopleGeneralCheck(m, pd);
+  const left = c.cap - c.dist;
+  const warn = c.problems.length ? `<div style="color:var(--er);font-weight:900;margin-top:4px">⚠ ${c.problems.join(' — ')}</div>` : '';
+  return `الوعاء العام المتاح للتوزيع على العاملين: <b class="num" style="color:var(--a)">${fmtNum(c.cap)}</b>
+    &nbsp;|&nbsp; الموزَّع منه: <b class="num">${fmtNum(c.dist)}</b>
+    &nbsp;|&nbsp; القابل للتوزيع (الأوعية المُدخلة): <b class="num">${fmtNum(c.pools)}</b>
+    &nbsp;|&nbsp; المتبقى للتوزيع: <b class="num" style="${left<-0.005?'color:var(--er)':''}">${fmtNum(left)}</b>${warn}
+    <div style="font-size:.85em;font-weight:700;color:var(--tm)">لا يُسمح بحفظ أى مبلغ يجعل الموزَّع أو القابل للتوزيع أكبر من هذا الوعاء.</div>`;
+}
+
 function updatePeopleCell(i, key, value){
   const m = getCurrentMonth(); if(!m || m.locked) return;
   const pd = ensurePeopleDist(m);
   if(!pd.rows[i]) return;
   if(!pd.rows[i].v) pd.rows[i].v = {};
+  const prev = pd.rows[i].v[key];
+  const before = peopleGeneralCheck(m, pd);
   const v = String(value).trim();
   if(v==='') delete pd.rows[i].v[key]; else pd.rows[i].v[key] = parseFloat(v)||0;
+  const after = peopleGeneralCheck(m, pd);
+  if(peopleWorsened(before, after)){
+    if(prev===undefined) delete pd.rows[i].v[key]; else pd.rows[i].v[key] = prev;
+    peopleRevertInput(prev);
+    alert(peopleRejectMsg(after));
+    recalcPeopleDist();
+    return;
+  }
   scheduleAutoSave();
   recalcPeopleDist();
 }
@@ -2992,8 +3291,12 @@ function importPeopleFromFile(file){
 
       // نبحث عن صف العناوين (أول 8 صفوف) — الصف الذى يحتوى على "الاسم"
       let headerIdx = -1;
-      for(let i=0;i<Math.min(rows.length,8);i++){
-        if(rows[i].some(c=>normHeader(c)==='الاسم')){ headerIdx = i; break; }
+      let bestCells = 0; // الملف المُصدَّر يحوى جداول أخرى فوق الجدول الرئيسى: نختار أعرض صف عناوين يحتوى "الاسم"
+      for(let i=0;i<Math.min(rows.length,80);i++){
+        if(rows[i].some(c=>normHeader(c)==='الاسم')){
+          const cells = rows[i].filter(c=>String(c).trim()!=='').length;
+          if(cells > bestCells){ bestCells = cells; headerIdx = i; }
+        }
       }
       const colMap = {}; // اسم الحقل -> رقم العمود
       const amountMap = {}; // مفتاح عمود التوزيع -> رقم العمود
@@ -3042,7 +3345,15 @@ function importPeopleFromFile(file){
         if(k){ if(seenNids.has(k)){ skippedNames.push((pp.name||'—')+' ('+pp.nid+')'); return; } seenNids.add(k); }
         toAdd.push(pp);
       });
+      const prevRows = pd.rows;
+      const chkBefore = peopleGeneralCheck(m, pd);
       pd.rows = replace ? toAdd : pd.rows.concat(toAdd);
+      const chkAfter = peopleGeneralCheck(m, pd);
+      if(peopleWorsened(chkBefore, chkAfter)){
+        pd.rows = prevRows;
+        alert('❌ لم يتم الاستيراد — المبالغ الموجودة فى الملف تجعل إجمالى الموزَّع أكبر من الوعاء العام المتاح للتوزيع.\n\n' + chkAfter.problems.join('\n') + '\n\nعدّل المبالغ فى الملف ثم أعد الاستيراد.');
+        return;
+      }
       scheduleAutoSave();
       renderSheet();
       toastSaved('✔ تم استيراد '+toAdd.length+' موظف'+(filledCount?' — وتكملة بيانات '+filledCount+' من الشهور السابقة':''));
@@ -3110,40 +3421,42 @@ const XL_FOOT = {fill:'#eef5f3', color:'#0b3d3a', size:13};
 
 async function exportTreasuryToExcel(){
   if(!TREASURY_ROWS.length){ alert('لا توجد بيانات لتصديرها.'); return; }
+  const vis = treasuryVisibleIdx();
+  if(!vis.length){ alert('لا توجد صفوف معروضة لتصديرها (الفلتر الحالى لا يطابق أى صف).'); return; }
   if(typeof ExcelJS === 'undefined'){ return exportTreasuryToExcelPlain(); }
   try{
+    const rowsOut = vis.map(i=>TREASURY_ROWS[i]);
+    const filtered = rowsOut.length !== TREASURY_ROWS.length;
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet('إيرادات الخزنة', {views:[{rightToLeft:true, state:'frozen', ySplit:2}]});
     const nC = TREASURY_COLS.length + 1;
-    TREASURY_COLS.forEach((c,i)=>{
-      ws.getColumn(i+1).width = c.type==='num' ? 17 : Math.max(13, Math.round((parseInt(c.width)||90)/6));
-    });
+    TREASURY_COLS.forEach((c,i)=>{ ws.getColumn(i+1).width = Math.max(11, Math.round(treasuryW(c.key)/7.2)); });
     ws.getColumn(nC).width = 19;
     ws.getColumn(1).width = 8;
     ws.getRow(1).height = 34;
-    xlPut(ws,1,1,nC,'🏦 الخزنة الرئيسية — إيصال 37 (الخزنة وتوريد البنك)',{size:16,color:'#0b3d3a',border:false,h:'right'});
+    xlPut(ws,1,1,nC,'🏦 الخزنة الرئيسية — إيصال 37 (الخزنة وتوريد البنك)' + (filtered ? ` — (مُصفّاة: ${rowsOut.length} من ${TREASURY_ROWS.length} إيصال)` : ''),{size:16,color:'#0b3d3a',border:false,h:'right'});
     TREASURY_COLS.forEach((c,i)=> xlPut(ws,2,i+1,i+1,c.label,XL_HEAD));
     xlPut(ws,2,nC,nC,'الإجمالى',XL_HEAD);
     ws.getRow(2).height = 36;
-    TREASURY_ROWS.forEach((r,ri)=>{
+    rowsOut.forEach((r,ri)=>{
       const row = 3 + ri;
       TREASURY_COLS.forEach((c,i)=>{
         const v = r[c.key]===undefined||r[c.key]===null ? '' : r[c.key];
         if(c.type==='num') xlPut(ws,row,i+1,i+1,Number(v)||0,{numFmt:XL_NUM});
-        else xlPut(ws,row,i+1,i+1,String(v),{h:c.type==='text'&&c.key==='notes'?'right':'center'});
+        else xlPut(ws,row,i+1,i+1,String(v),{h:c.key==='notes'?'right':'center'});
       });
       xlPut(ws,row,nC,nC,treasuryRowTotal(r),{numFmt:XL_NUM,color:'#c17817'});
       ws.getRow(row).height = 24;
     });
-    const tr = 3 + TREASURY_ROWS.length;
+    const tr = 3 + rowsOut.length;
     const firstSum = TREASURY_COLS.findIndex(c=>TREASURY_SUM_KEYS.includes(c.key));
-    xlPut(ws,tr,1,firstSum,`الإجمالى (${TREASURY_ROWS.length} إيصال)`,XL_FOOT);
+    xlPut(ws,tr,1,firstSum,`الإجمالى (${rowsOut.length} إيصال)`,XL_FOOT);
     TREASURY_COLS.forEach((c,i)=>{
       if(i<firstSum) return;
-      if(TREASURY_SUM_KEYS.includes(c.key)) xlPut(ws,tr,i+1,i+1,TREASURY_ROWS.reduce((x,r)=>x+(Number(r[c.key])||0),0),Object.assign({numFmt:XL_NUM},XL_FOOT));
+      if(TREASURY_SUM_KEYS.includes(c.key)) xlPut(ws,tr,i+1,i+1,rowsOut.reduce((x,r)=>x+(Number(r[c.key])||0),0),Object.assign({numFmt:XL_NUM},XL_FOOT));
       else xlPut(ws,tr,i+1,i+1,'',XL_FOOT);
     });
-    xlPut(ws,tr,nC,nC,TREASURY_ROWS.reduce((x,r)=>x+treasuryRowTotal(r),0),{fill:'#eef5f3',color:'#c17817',size:13,numFmt:XL_NUM});
+    xlPut(ws,tr,nC,nC,rowsOut.reduce((x,r)=>x+treasuryRowTotal(r),0),{fill:'#eef5f3',color:'#c17817',size:13,numFmt:XL_NUM});
     ws.getRow(tr).height = 30;
     ws.pageSetup = {paperSize:9, orientation:'landscape', fitToPage:true, fitToWidth:1, fitToHeight:0, margins:{left:.3,right:.3,top:.4,bottom:.4,header:.2,footer:.2}};
     ws.pageSetup.printTitlesRow = '2:2';
@@ -3159,85 +3472,117 @@ async function exportPeopleToExcel(){
   const m = getCurrentMonth(); if(!m) return;
   const pd = ensurePeopleDist(m);
   if(!pd.rows.length){ alert('لا توجد بيانات لتصديرها.'); return; }
+  const chk = peopleGeneralCheck(m, pd);
+  if(chk.problems.length){
+    alert('❌ لا يمكن التصدير — لا يجوز أن يزيد الموزَّع أو القابل للتوزيع عن الوعاء العام المتاح للتوزيع.\n\n' + chk.problems.join('\n') + '\n\nصحّح الأرقام ثم أعد التصدير.');
+    return;
+  }
   if(typeof ExcelJS === 'undefined'){ return exportPeopleToExcelPlain(); }
   try{
     const wb = new ExcelJS.Workbook();
     const N = PEOPLE_ALL_COLS.length;
     const FIRST = 6, LAST = FIRST + N;          // عمود "إجمالى الشخص" = LAST
-    const ws = wb.addWorksheet('توزيع الأشخاص', {views:[{rightToLeft:true, state:'frozen', ySplit:7}]});
-    ws.getColumn(1).width = 7; ws.getColumn(2).width = 21; ws.getColumn(3).width = 32; ws.getColumn(4).width = 18; ws.getColumn(5).width = 18;
+    const ws = wb.addWorksheet('توزيع الأشخاص', {views:[{rightToLeft:true}]});
+    [7,21,32,18,22].forEach((w,i)=> ws.getColumn(i+1).width = w);
     for(let c=FIRST;c<LAST;c++) ws.getColumn(c).width = 18;
     ws.getColumn(LAST).width = 19;
+    const HEAD = XL_HEAD;
+    const SEC = {size:14,color:'#0b3d3a',border:false,h:'right'};
+    let R = 1;
 
-    /* العنوان */
-    xlPut(ws,1,1,LAST,'مديرية الشئون الصحية بسوهاج\nمستشفى سوهاج العام\nتوزيع مستحقات صندوق تحسين الخدمة على الأشخاص — '+(m.label||''),{size:16,color:'#0b3d3a',border:false});
-    ws.getRow(1).height = 78;
+    /* ===== ترويسة الصفحة ===== */
+    xlPut(ws,R,1,LAST,'مديرية الشئون الصحية بسوهاج\nمستشفى سوهاج العام\nتوزيع مستحقات صندوق تحسين الخدمة — '+(m.label||''),{size:16,color:'#0b3d3a',border:false});
+    ws.getRow(R).height = 78; R += 2;
 
-    const distOf = k => pd.rows.reduce((s,r)=> s + (Number(r.v&&r.v[k])||0), 0);
-    const poolTotal = PEOPLE_ALL_COLS.reduce((s,c)=> s + (peoplePoolVal(pd,c.k)||0), 0);
-    const grandDist = pd.rows.reduce((s,r)=> s + peopleRowTotal(r), 0);
+    /* ===== 1) كبار المسئولين — مقابل حضور جلسة مجلس الإدارة ===== */
+    xlPut(ws,R,1,5,'كبار المسئولين — مقابل حضور جلسة مجلس الإدارة',SEC); ws.getRow(R).height = 28; R++;
+    ['م','الرقم القومى','الاسم','المنصب','مقابل حضور جلسة مجلس الإدارة'].forEach((t,i)=> xlPut(ws,R,i+1,i+1,t,HEAD));
+    ws.getRow(R).height = 40; R++;
+    pd.officials.forEach((o,i)=>{
+      xlPut(ws,R,1,1,i+1,{});
+      xlPut(ws,R,2,2,String(o.nid||''),{});
+      xlPut(ws,R,3,3,String(o.name||''),{h:'right'});
+      xlPut(ws,R,4,4,String(o.role||''),{fill:'#fff9c4',h:'right'});
+      xlPut(ws,R,5,5,Number(o.amount)||0,{numFmt:XL_NUM});
+      ws.getRow(R).height = 24; R++;
+    });
+    xlPut(ws,R,1,4,'الإجمالى',XL_FOOT);
+    xlPut(ws,R,5,5,pd.officials.reduce((x,o)=>x+(Number(o.amount)||0),0),Object.assign({numFmt:XL_NUM},XL_FOOT));
+    ws.getRow(R).height = 28; R += 3;
+
+    /* ===== 2) المجموعة حسب العيادات (قسم × أيام الأسبوع) ===== */
+    xlPut(ws,R,1,5,'المجموعة حسب العيادات',SEC); ws.getRow(R).height = 28; R++;
+    xlPut(ws,R,1,1,'م',HEAD); xlPut(ws,R,2,2,'القسم',HEAD);
+    PEOPLE_DAYS.forEach(([k,l],i)=> xlPut(ws,R,3+i,3+i,l,HEAD));
+    ws.getRow(R).height = 36; R++;
+    pd.clinicDepts.forEach((cd,i)=>{
+      xlPut(ws,R,1,1,i+1,{});
+      xlPut(ws,R,2,2,String(cd.dept||''),{h:'right'});
+      PEOPLE_DAYS.forEach(([k],j)=> xlPut(ws,R,3+j,3+j,String((cd.days&&cd.days[k])||''),{}));
+      ws.getRow(R).height = 24; R++;
+    });
+    R += 2;
+
+    /* ===== 3) توزيع مستحقات صندوق تحسين الخدمة على الأشخاص ===== */
+    xlPut(ws,R,1,LAST,'توزيع مستحقات صندوق تحسين الخدمة على الأشخاص',SEC); ws.getRow(R).height = 30; R++;
+    xlPut(ws,R,1,LAST,'الوعاء العام المتاح للتوزيع على العاملين: '+fmtNum(chk.cap)+'     |     الموزَّع منه: '+fmtNum(chk.dist)+'     |     المتبقى للتوزيع: '+fmtNum(chk.cap-chk.dist),{fill:'#fff8e1',size:13,h:'right'});
+    ws.getRow(R).height = 30; R++;
+
+    const distOf = k => pd.rows.reduce((x,r)=> x + (Number(r.v&&r.v[k])||0), 0);
+    const poolTotal = PEOPLE_ALL_COLS.reduce((x,c)=> x + (peoplePoolVal(pd,c.k)||0), 0);
+    const grandDist = pd.rows.reduce((x,r)=> x + peopleRowTotal(r), 0);
     const FOOT = {fill:'#eef5f3', color:'#0b3d3a', size:12};
     const POOL = {fill:'#fff8e1', color:'#000000', size:12, numFmt:XL_NUM};
 
-    /* 2) الوعاء المتاح للمجموعة */
-    xlPut(ws,2,1,5,'الوعاء المتاح للمجموعة (إدخال يدوى)',FOOT);
+    const rGroupPool = R, rGroupHead = R+1, rPool = R+2, rDist = R+3, rRem = R+4, rHead = R+5;
+    xlPut(ws,rGroupPool,1,5,'الوعاء المتاح للمجموعة (إدخال يدوى)',FOOT);
     let col = FIRST;
     PEOPLE_GROUPS.forEach(g=>{
       const raw = pd.groupPool[g.cols[0].k];
       const gv = (raw===undefined||raw===null||raw==='') ? null : (Number(raw)||0);
-      const txt = 'الوعاء المتاح: ' + g.title.split('—')[0].trim() + (gv===null ? '' : '\n' + fmtNum(gv));
-      xlPut(ws,2,col,col+g.cols.length-1,txt,{fill:'#fff8e1',size:12});
+      xlPut(ws,rGroupPool,col,col+g.cols.length-1,'الوعاء المتاح: '+g.title.split('—')[0].trim()+(gv===null?'':'\n'+fmtNum(gv)),{fill:'#fff8e1',size:12});
+      xlPut(ws,rGroupHead,col,col+g.cols.length-1,g.title,{fill:g.color,color:'#ffffff',size:13});
       col += g.cols.length;
     });
-    xlPut(ws,2,LAST,LAST,'',FOOT);
-    ws.getRow(2).height = 50;
+    xlPut(ws,rGroupPool,LAST,LAST,'',FOOT);
+    xlPut(ws,rGroupHead,1,5,'',{fill:'#eef5f3'}); xlPut(ws,rGroupHead,LAST,LAST,'',{fill:'#eef5f3'});
+    ws.getRow(rGroupPool).height = 50; ws.getRow(rGroupHead).height = 32;
 
-    /* 3) عناوين المجموعات بألوانها */
-    xlPut(ws,3,1,5,'',{fill:'#eef5f3'});
-    col = FIRST;
-    PEOPLE_GROUPS.forEach(g=>{
-      xlPut(ws,3,col,col+g.cols.length-1,g.title,{fill:g.color,color:'#ffffff',size:13});
-      col += g.cols.length;
-    });
-    xlPut(ws,3,LAST,LAST,'',{fill:'#eef5f3'});
-    ws.getRow(3).height = 32;
-
-    /* 4) الوعاء المتاح لكل عمود / 5) الموزَّع فعلًا / 6) المتبقى */
-    xlPut(ws,4,1,5,'الوعاء المتاح لكل عمود (إدخال يدوى)',FOOT);
-    xlPut(ws,5,1,5,`الموزَّع فعلًا (${pd.rows.length} شخص)`,FOOT);
-    xlPut(ws,6,1,5,'المتبقى غير الموزَّع',FOOT);
+    xlPut(ws,rPool,1,5,'الوعاء المتاح لكل عمود (إدخال يدوى)',FOOT);
+    xlPut(ws,rDist,1,5,`الموزَّع فعلًا (${pd.rows.length} شخص)`,FOOT);
+    xlPut(ws,rRem,1,5,'المتبقى غير الموزَّع',FOOT);
     PEOPLE_ALL_COLS.forEach((c,i)=>{
       const cc = FIRST + i, pv = peoplePoolVal(pd,c.k), dist = distOf(c.k);
-      xlPut(ws,4,cc,cc,pv===null?'':pv,POOL);
-      xlPut(ws,5,cc,cc,dist,Object.assign({},FOOT,{numFmt:XL_NUM}));
-      if(pv===null) xlPut(ws,6,cc,cc,'',FOOT);
-      else { const rem = pv - dist; xlPut(ws,6,cc,cc,rem,Object.assign({},FOOT,{numFmt:XL_NUM,color:rem<-0.005?'#b3261e':'#0b3d3a'})); }
+      xlPut(ws,rPool,cc,cc,pv===null?'':pv,POOL);
+      xlPut(ws,rDist,cc,cc,dist,Object.assign({},FOOT,{numFmt:XL_NUM}));
+      if(pv===null) xlPut(ws,rRem,cc,cc,'',FOOT);
+      else { const rem = pv - dist; xlPut(ws,rRem,cc,cc,rem,Object.assign({},FOOT,{numFmt:XL_NUM,color:rem<-0.005?'#b3261e':'#0b3d3a'})); }
     });
-    xlPut(ws,4,LAST,LAST,poolTotal,Object.assign({},FOOT,{numFmt:XL_NUM}));
-    xlPut(ws,5,LAST,LAST,grandDist,Object.assign({},FOOT,{numFmt:XL_NUM}));
-    xlPut(ws,6,LAST,LAST,poolTotal-grandDist,Object.assign({},FOOT,{numFmt:XL_NUM}));
-    [4,5,6].forEach(r=> ws.getRow(r).height = 28);
+    xlPut(ws,rPool,LAST,LAST,poolTotal,Object.assign({},FOOT,{numFmt:XL_NUM}));
+    xlPut(ws,rDist,LAST,LAST,grandDist,Object.assign({},FOOT,{numFmt:XL_NUM}));
+    xlPut(ws,rRem,LAST,LAST,poolTotal-grandDist,Object.assign({},FOOT,{numFmt:XL_NUM}));
+    [rPool,rDist,rRem].forEach(r=> ws.getRow(r).height = 28);
 
-    /* 7) رؤوس الأعمدة — نفس الشكل: أصفر للبيانات الأساسية، ولون المجموعة للأعمدة */
+    /* رؤوس الأعمدة — أصفر للبيانات الأساسية ولون المجموعة للأعمدة (العناوين المتكررة تحمل اسم المجموعة ليظل الاستيراد دقيقًا) */
     const plainCount = {};
     PEOPLE_ALL_COLS.forEach(c=>{ const k=normHeader(c.label); plainCount[k]=(plainCount[k]||0)+1; });
-    xlPut(ws,7,1,1,'م',XL_HEAD);
-    [['الرقم القومى',2],['الاسم',3],['التخصص',4],['القسم',5]].forEach(([t,cc])=> xlPut(ws,7,cc,cc,t,{fill:'#fff59d',color:'#000000',size:13}));
+    xlPut(ws,rHead,1,1,'م',HEAD);
+    [['الرقم القومى',2],['الاسم',3],['التخصص',4],['القسم',5]].forEach(([t,cc])=> xlPut(ws,rHead,cc,cc,t,{fill:'#fff59d',color:'#000000',size:13}));
     let maxLen = 12;
     PEOPLE_GROUPS.forEach(g=> g.cols.forEach(c=>{
       const cc = FIRST + PEOPLE_ALL_COLS.indexOf(c);
-      const t = plainCount[normHeader(c.label)]>1 ? peopleColHeader(c) : c.label; // العناوين المتكررة تحمل اسم المجموعة ليظل الاستيراد دقيقًا
+      const t = plainCount[normHeader(c.label)]>1 ? peopleColHeader(c) : c.label;
       maxLen = Math.max(maxLen, t.length);
-      xlPut(ws,7,cc,cc,t,{fill:g.color,color:'#ffffff',size:12});
+      xlPut(ws,rHead,cc,cc,t,{fill:g.color,color:'#ffffff',size:12});
     }));
-    xlPut(ws,7,LAST,LAST,'إجمالى الشخص',XL_HEAD);
-    ws.getRow(7).height = Math.min(190, Math.max(40, Math.ceil(maxLen/14)*19));
+    xlPut(ws,rHead,LAST,LAST,'إجمالى الشخص',HEAD);
+    ws.getRow(rHead).height = Math.min(190, Math.max(40, Math.ceil(maxLen/14)*19));
 
     /* صفوف الأشخاص */
     const nidCount = {};
     pd.rows.forEach(r=>{ const k = normNid(r.nid); if(k) nidCount[k] = (nidCount[k]||0)+1; });
     pd.rows.forEach((r,i)=>{
-      const row = 8 + i;
+      const row = rHead + 1 + i;
       const dup = nidCount[normNid(r.nid)] > 1;
       const base = dup ? {fill:'#ffe5e2'} : {};
       xlPut(ws,row,1,1,i+1,base);
@@ -3253,45 +3598,6 @@ async function exportPeopleToExcel(){
       ws.getRow(row).height = 24;
     });
     ws.pageSetup = {paperSize:9, orientation:'landscape', fitToPage:true, fitToWidth:1, fitToHeight:0, margins:{left:.3,right:.3,top:.4,bottom:.4,header:.2,footer:.2}};
-    ws.pageSetup.printTitlesRow = '7:7';
-
-    /* ورقة ثانية: كبار المسئولين + المجموعة حسب العيادات */
-    const w2 = wb.addWorksheet('كبار المسئولين والعيادات', {views:[{rightToLeft:true}]});
-    [7,24,32,28,30,18,18,18].forEach((w,i)=> w2.getColumn(i+1).width = w);
-    xlPut(w2,1,1,8,'مديرية الشئون الصحية بسوهاج\nمستشفى سوهاج العام',{size:16,color:'#0b3d3a',border:false});
-    w2.getRow(1).height = 56;
-    xlPut(w2,3,1,5,'كبار المسئولين — مقابل حضور جلسة مجلس الإدارة',{size:14,color:'#0b3d3a',border:false,h:'right'});
-    w2.getRow(3).height = 28;
-    ['م','الرقم القومى','الاسم','المنصب','مقابل حضور جلسة مجلس الإدارة'].forEach((t,i)=> xlPut(w2,4,i+1,i+1,t,XL_HEAD));
-    w2.getRow(4).height = 36;
-    pd.officials.forEach((o,i)=>{
-      const r = 5 + i;
-      xlPut(w2,r,1,1,i+1,{});
-      xlPut(w2,r,2,2,String(o.nid||''),{});
-      xlPut(w2,r,3,3,String(o.name||''),{h:'right'});
-      xlPut(w2,r,4,4,String(o.role||''),{fill:'#fff9c4',h:'right'});
-      xlPut(w2,r,5,5,Number(o.amount)||0,{numFmt:XL_NUM});
-      w2.getRow(r).height = 24;
-    });
-    const ot = 5 + pd.officials.length;
-    xlPut(w2,ot,1,4,'الإجمالى',XL_FOOT);
-    xlPut(w2,ot,5,5,pd.officials.reduce((s,o)=>s+(Number(o.amount)||0),0),Object.assign({numFmt:XL_NUM},XL_FOOT));
-    w2.getRow(ot).height = 28;
-
-    const cs = ot + 3;
-    xlPut(w2,cs,1,8,'المجموعة حسب العيادات',{size:14,color:'#0b3d3a',border:false,h:'right'});
-    w2.getRow(cs).height = 28;
-    xlPut(w2,cs+1,1,1,'م',XL_HEAD); xlPut(w2,cs+1,2,2,'القسم',XL_HEAD);
-    PEOPLE_DAYS.forEach(([k,l],i)=> xlPut(w2,cs+1,3+i,3+i,l,XL_HEAD));
-    w2.getRow(cs+1).height = 36;
-    pd.clinicDepts.forEach((cd,i)=>{
-      const r = cs + 2 + i;
-      xlPut(w2,r,1,1,i+1,{});
-      xlPut(w2,r,2,2,String(cd.dept||''),{h:'right'});
-      PEOPLE_DAYS.forEach(([k],j)=> xlPut(w2,r,3+j,3+j,String((cd.days&&cd.days[k])||''),{}));
-      w2.getRow(r).height = 24;
-    });
-    w2.pageSetup = {paperSize:9, orientation:'landscape', fitToPage:true, fitToWidth:1, fitToHeight:0};
 
     const safeLabel = String(m.label||'').replace(/[\\/:*?"<>|]/g,'-');
     await xlDownload(wb, `توزيع الأشخاص - ${safeLabel}.xlsx`);
